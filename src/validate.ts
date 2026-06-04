@@ -1,6 +1,6 @@
+import { isIP } from "node:net";
+
 const DOMAIN_RE = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
-const IPV4_RE = /^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
-const IPV6_RE = /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^(?:[0-9a-fA-F]{1,4}:)*::(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{1,4}$/;
 
 export function validateDomain(domain: string): string {
   if (!domain || typeof domain !== "string") {
@@ -21,7 +21,7 @@ export function validateIp(ip: string): string {
     throw new Error("IP address is required");
   }
   const trimmed = ip.trim();
-  if (!IPV4_RE.test(trimmed) && !IPV6_RE.test(trimmed)) {
+  if (isIP(trimmed) === 0) {
     throw new Error("Invalid IP address format");
   }
   return trimmed;
@@ -32,7 +32,7 @@ export function validateIpOrHostname(value: string): string {
     throw new Error("Server address is required");
   }
   const trimmed = value.trim();
-  if (IPV4_RE.test(trimmed) || IPV6_RE.test(trimmed)) {
+  if (isIP(trimmed) !== 0) {
     return trimmed;
   }
   if (trimmed.startsWith("https://")) {

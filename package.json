@@ -6,11 +6,18 @@
   "bin": {
     "technitium-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "audit": "npm audit"
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/",
+    "audit": "npm audit",
+    "prepublishOnly": "rm -rf dist && npm run build && npm test"
   },
   "engines": {
     "node": ">=18.0.0"

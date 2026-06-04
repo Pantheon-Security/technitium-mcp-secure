@@ -3,7 +3,7 @@ import { ToolEntry } from "../types.js";
 import { validateDomain, validateRecordType, validateIp } from "../validate.js";
 
 /** Parse a BIND-format zone export into structured records */
-function parseBind(
+export function parseBind(
   zone: string,
   bindText: string
 ): Array<{ name: string; ttl: number; type: string; value: string }> {
