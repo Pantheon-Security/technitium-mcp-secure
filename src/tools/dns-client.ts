@@ -53,6 +53,7 @@ export function dnsClientTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async (args) => {
         const params: Record<string, string> = {
           domain: validateDomain(args.domain as string),

@@ -27,6 +27,7 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async (args) => {
         const period = args.period
           ? validatePeriod(args.period as string)
@@ -105,6 +106,7 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/user/checkForUpdate");
         return JSON.stringify(data, null, 2);

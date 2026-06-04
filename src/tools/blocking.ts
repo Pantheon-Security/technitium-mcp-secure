@@ -21,6 +21,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async (args) => {
         const params: Record<string, string> = {};
         if (args.domain) params.domain = validateDomain(args.domain as string);
@@ -74,6 +75,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async (args) => {
         const params: Record<string, string> = {};
         if (args.domain) params.domain = validateDomain(args.domain as string);

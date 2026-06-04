@@ -58,6 +58,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
 

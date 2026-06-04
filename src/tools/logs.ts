@@ -63,6 +63,7 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async (args) => {
         const params: Record<string, string> = {
           name: "Query Logs (Sqlite)",

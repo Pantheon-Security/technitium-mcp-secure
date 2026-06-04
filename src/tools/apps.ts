@@ -31,6 +31,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/apps/listStoreApps");
         return JSON.stringify(data, null, 2);
