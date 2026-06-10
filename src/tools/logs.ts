@@ -6,6 +6,10 @@ import {
   validateRecordType,
   validateStringLength,
 } from "../validate.js";
+import { ValidationError } from "../errors.js";
+
+const DEFAULT_ENTRIES_PER_PAGE = 25;
+const MAX_ENTRIES_PER_PAGE = 100;
 
 export function logTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -68,9 +72,12 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
         const params: Record<string, string> = {
           name: "Query Logs (Sqlite)",
           classPath: "QueryLogsSqlite.App",
-          pageNumber: String(args.pageNumber || 1),
+          pageNumber: String(Math.max(Number(args.pageNumber) || 1, 1)),
           entriesPerPage: String(
-            Math.min(Number(args.entriesPerPage) || 25, 100)
+            Math.min(
+              Number(args.entriesPerPage) || DEFAULT_ENTRIES_PER_PAGE,
+              MAX_ENTRIES_PER_PAGE
+            )
           ),
         };
 
@@ -98,7 +105,7 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
           ]);
           const code = args.responseCode as string;
           if (!valid.has(code)) {
-            throw new Error(`Invalid response code: ${code}`);
+            throw new ValidationError(`Invalid response code: ${code}`);
           }
           params.rcode = code;
         }

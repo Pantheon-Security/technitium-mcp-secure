@@ -2,6 +2,9 @@ import { TechnitiumClient } from "../client.js";
 import { ToolEntry } from "../types.js";
 import { validatePeriod } from "../validate.js";
 
+/** Cap each "top N" list so a LastYear query can't return a huge payload. */
+const TOP_N = 20;
+
 export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
   return [
     {
@@ -35,13 +38,16 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/dashboard/stats/get", {
           type: period,
         });
-        const stats = data.stats as Record<string, unknown>;
-        const topClients = data.topClients as unknown[];
-        const topDomains = data.topDomains as unknown[];
-        const topBlocked = data.topBlockedDomains as unknown[];
+        const cap = (arr: unknown): unknown[] =>
+          Array.isArray(arr) ? arr.slice(0, TOP_N) : [];
 
         return JSON.stringify(
-          { stats, topClients, topDomains, topBlockedDomains: topBlocked },
+          {
+            stats: (data.stats as Record<string, unknown>) ?? {},
+            topClients: cap(data.topClients),
+            topDomains: cap(data.topDomains),
+            topBlockedDomains: cap(data.topBlockedDomains),
+          },
           null,
           2
         );
@@ -59,14 +65,28 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
       },
       readonly: true,
       handler: async () => {
-        const [settings, stats] = await Promise.all([
+        // allSettled so one failing dependency degrades the report rather than
+        // collapsing the whole health check.
+        const [settingsR, statsR] = await Promise.allSettled([
           client.callOrThrow("/api/settings/get"),
           client.callOrThrow("/api/dashboard/stats/get", {
             type: "LastHour",
           }),
         ]);
 
-        const s = stats.stats as Record<string, number>;
+        const settings =
+          settingsR.status === "fulfilled"
+            ? settingsR.value
+            : ({} as Record<string, unknown>);
+        const s =
+          statsR.status === "fulfilled"
+            ? ((statsR.value.stats as Record<string, number>) ?? {})
+            : {};
+
+        const degraded: string[] = [];
+        if (settingsR.status === "rejected") degraded.push("settings");
+        if (statsR.status === "rejected") degraded.push("stats");
+
         const totalQueries = s.totalQueries || 0;
         const failures = s.totalServerFailure || 0;
         const failureRate =
@@ -76,6 +96,8 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
 
         return JSON.stringify(
           {
+            status: degraded.length === 0 ? "ok" : "degraded",
+            ...(degraded.length > 0 && { unavailable: degraded }),
             version: settings.version,
             uptimestamp: settings.uptimestamp,
             dnsServerDomain: settings.dnsServerDomain,

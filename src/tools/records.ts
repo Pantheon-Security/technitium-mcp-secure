@@ -1,6 +1,7 @@
 import { TechnitiumClient } from "../client.js";
 import { ToolEntry } from "../types.js";
 import { validateDomain, validateRecordType, validateIp } from "../validate.js";
+import { UpstreamError } from "../errors.js";
 
 /** Parse a BIND-format zone export into structured records */
 export function parseBind(
@@ -74,6 +75,11 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
 
         // No domain specified — find all zones that match or are subzones of the requested name
         const zoneList = await client.callOrThrow("/api/zones/list");
+        if (!Array.isArray(zoneList.zones)) {
+          throw new UpstreamError(
+            "Unexpected response from /api/zones/list: missing zones array"
+          );
+        }
         const allZones = (
           zoneList.zones as Array<{ name: string; internal: boolean }>
         ).filter(
@@ -93,7 +99,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
 
         if (allZones.length === 1 && allZones[0].name === zone) {
           // Exact single zone — export to get ALL records (apex + subdomains)
-          const bindText = await client.callRawTextGet("/api/zones/export", {
+          const bindText = await client.callRawText("/api/zones/export", {
             zone,
           });
           return JSON.stringify(
@@ -107,7 +113,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         const results: unknown[] = [];
         for (const z of allZones) {
           try {
-            const bindText = await client.callRawTextGet("/api/zones/export", {
+            const bindText = await client.callRawText("/api/zones/export", {
               zone: z.name,
             });
             results.push({ zone: z.name, records: parseBind(z.name, bindText) });
@@ -272,6 +278,12 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         } else if (recType === "MX") {
           params.exchange = validateDomain(value);
           params.newExchange = validateDomain(newValue);
+        } else if (recType === "NS") {
+          params.nameServer = validateDomain(value);
+          params.newNameServer = validateDomain(newValue);
+        } else if (recType === "PTR") {
+          params.ptrName = validateDomain(value);
+          params.newPtrName = validateDomain(newValue);
         } else if (recType === "TXT") {
           params.text = value;
           params.newText = newValue;
@@ -299,17 +311,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             },
             type: {
               type: "string",
-              enum: [
-                "A",
-                "AAAA",
-                "CNAME",
-                "MX",
-                "NS",
-                "PTR",
-                "TXT",
-                "SRV",
-                "CAA",
-              ],
+              enum: ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT"],
               description: "Record type",
             },
             value: {
@@ -358,6 +360,8 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           params.text = value;
         } else if (recType === "NS") {
           params.nameServer = value;
+        } else if (recType === "PTR") {
+          params.ptrName = value;
         }
 
         const data = await client.callOrThrow(

@@ -1,6 +1,13 @@
+// Two deliberately different hex thresholds:
+//  - error strings are scrubbed aggressively (any 20+ char hex run is suspect),
+//  - response bodies use a higher bar (32+) so legitimate DNS data such as
+//    DNSSEC DS digests isn't clobbered. See sanitizeString below.
+const ERROR_TOKEN_HEX_MIN = 20;
+const RESPONSE_TOKEN_HEX_MIN = 32;
+
 const SENSITIVE_PATTERNS: [RegExp, string][] = [
-  // Hex tokens (20+ chars)
-  [/\b[0-9a-f]{20,}\b/gi, "[REDACTED_TOKEN]"],
+  // Hex tokens (ERROR_TOKEN_HEX_MIN+ chars)
+  [new RegExp(`\\b[0-9a-f]{${ERROR_TOKEN_HEX_MIN},}\\b`, "gi"), "[REDACTED_TOKEN]"],
   // URLs with credentials
   [/https?:\/\/[^:]+:[^@]+@[^\s]+/g, "[REDACTED_URL]"],
   // File paths (Unix)
@@ -62,7 +69,10 @@ export function sanitizeResponse(data: unknown): unknown {
 
 function sanitizeString(value: string): string {
   // Redact long hex strings that look like tokens
-  return value.replace(/\b[0-9a-f]{32,}\b/gi, "[REDACTED_TOKEN]");
+  return value.replace(
+    new RegExp(`\\b[0-9a-f]{${RESPONSE_TOKEN_HEX_MIN},}\\b`, "gi"),
+    "[REDACTED_TOKEN]"
+  );
 }
 
 export function maskUrl(url: string): string {

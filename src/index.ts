@@ -12,6 +12,7 @@ import { getAllTools } from "./tools/index.js";
 import { audit } from "./audit.js";
 import { RateLimiter } from "./rate-limit.js";
 import { sanitizeError, sanitizeResponse, maskUrl } from "./sanitize.js";
+import { ValidationError } from "./errors.js";
 
 const VERSION = "1.2.4";
 
@@ -87,13 +88,18 @@ async function main(): Promise<void> {
     try {
       const rawResult = await tool.handler((args || {}) as Record<string, unknown>);
 
-      // Sanitize the response
-      let sanitized: string;
+      // Sanitize the response. When it parses as a JSON object, also expose it
+      // as structuredContent so SDK-aware hosts get machine-parseable output.
+      let sanitizedText: string;
+      let structured: Record<string, unknown> | undefined;
       try {
-        const parsed = JSON.parse(rawResult);
-        sanitized = JSON.stringify(sanitizeResponse(parsed), null, 2);
+        const parsed = sanitizeResponse(JSON.parse(rawResult));
+        sanitizedText = JSON.stringify(parsed, null, 2);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          structured = parsed as Record<string, unknown>;
+        }
       } catch {
-        sanitized = rawResult;
+        sanitizedText = rawResult;
       }
 
       audit.logToolCall(
@@ -106,15 +112,19 @@ async function main(): Promise<void> {
       // Fence third-party-controlled output so injected instructions
       // inside DNS data are presented to the model as data, not directives
       const text = tool.untrusted
-        ? `${UNTRUSTED_FENCE_OPEN}\n${sanitized}\n${UNTRUSTED_FENCE_CLOSE}`
-        : sanitized;
+        ? `${UNTRUSTED_FENCE_OPEN}\n${sanitizedText}\n${UNTRUSTED_FENCE_CLOSE}`
+        : sanitizedText;
 
       return {
         content: [{ type: "text" as const, text }],
+        ...(structured && { structuredContent: structured }),
       };
     } catch (error) {
+      // Validation errors are author-constructed and safe to surface verbatim;
+      // everything else is sanitized in case it carries upstream internals.
+      const isValidation = error instanceof ValidationError;
       const rawMessage = error instanceof Error ? error.message : String(error);
-      const message = sanitizeError(rawMessage);
+      const message = isValidation ? rawMessage : sanitizeError(rawMessage);
 
       audit.logToolCall(
         name,
@@ -128,7 +138,10 @@ async function main(): Promise<void> {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ error: message }),
+            text: JSON.stringify({
+              error: message,
+              ...(isValidation && { type: "validation" }),
+            }),
           },
         ],
         isError: true,
@@ -148,6 +161,18 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  // Log crashes through the audit channel rather than dropping the transport
+  // silently; sanitize first so a stack/path never reaches stderr in the clear.
+  process.on("uncaughtException", (err) => {
+    audit.logSecurity("uncaught_exception", sanitizeError(err.message));
+    process.exit(1);
+  });
+  process.on("unhandledRejection", (reason) => {
+    const msg = reason instanceof Error ? reason.message : String(reason);
+    audit.logSecurity("unhandled_rejection", sanitizeError(msg));
+    process.exit(1);
+  });
 
   const transport = new StdioServerTransport();
   audit.logStartup(VERSION, maskUrl(config.url));

@@ -1,6 +1,10 @@
 import { Config } from "./config.js";
 import { TechnitiumResponse } from "./types.js";
 import { audit } from "./audit.js";
+import { AuthError, UpstreamError } from "./errors.js";
+
+/** Abort any request to Technitium that hangs longer than this. */
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export class TechnitiumClient {
   private sessionToken: string | null = null;
@@ -22,7 +26,7 @@ export class TechnitiumClient {
     }
 
     if (!this.config.password) {
-      throw new Error("No token or password configured");
+      throw new AuthError("No token or password configured");
     }
 
     const body = new URLSearchParams({
@@ -30,16 +34,22 @@ export class TechnitiumClient {
       pass: this.config.password,
     });
 
-    const resp = await fetch(`${this.config.url}/api/user/login`, {
+    const resp = await this.fetchWithTimeout(`${this.config.url}/api/user/login`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
     });
+
+    if (!resp.ok) {
+      audit.logAuth("login", false, `HTTP ${resp.status}`);
+      throw new UpstreamError(`Login request failed: HTTP ${resp.status}`);
+    }
+
     const data = (await resp.json()) as TechnitiumResponse;
 
     if (data.status !== "ok" || !data.response) {
       audit.logAuth("login", false, data.errorMessage);
-      throw new Error("Authentication failed");
+      throw new AuthError("Authentication failed");
     }
 
     this.sessionToken = data.response.token as string;
@@ -61,40 +71,77 @@ export class TechnitiumClient {
     await this.authInFlight;
   }
 
+  /** fetch() with a hard timeout and upstream errors normalised. */
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit
+  ): Promise<Response> {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      const e = err as Error;
+      if (e.name === "TimeoutError" || e.name === "AbortError") {
+        throw new UpstreamError(
+          `Request to Technitium timed out after ${REQUEST_TIMEOUT_MS}ms`
+        );
+      }
+      throw new UpstreamError(`Cannot reach Technitium: ${e.message}`);
+    }
+  }
+
+  /**
+   * Send one token-authenticated request. The token always travels in the
+   * POST body (never the query string, which proxies and web servers log).
+   */
+  private async sendOnce(
+    endpoint: string,
+    params: Record<string, string>
+  ): Promise<Response> {
+    const body = new URLSearchParams({
+      ...params,
+      token: this.sessionToken!,
+    });
+
+    return this.fetchWithTimeout(`${this.config.url}${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+  }
+
   async call(
     endpoint: string,
     params: Record<string, string> = {}
   ): Promise<TechnitiumResponse> {
     await this.ensureAuth();
 
-    const result = await this.doCall(endpoint, params);
+    let resp = await this.sendOnce(endpoint, params);
+    let data = await this.readJson(resp);
 
-    if (result.status === "invalid-token") {
+    if (data.status === "invalid-token") {
       this.sessionToken = null;
       audit.logAuth("token_expired", false);
       await this.ensureAuth();
-      return this.doCall(endpoint, params);
+      resp = await this.sendOnce(endpoint, params);
+      data = await this.readJson(resp);
     }
 
-    return result;
+    return data;
   }
 
-  private async doCall(
-    endpoint: string,
-    params: Record<string, string>
-  ): Promise<TechnitiumResponse> {
-    const body = new URLSearchParams({
-      ...params,
-      token: this.sessionToken!,
-    });
-
-    const resp = await fetch(`${this.config.url}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
-
-    return (await resp.json()) as TechnitiumResponse;
+  /** Parse a JSON API response, mapping transport/parse failures to UpstreamError. */
+  private async readJson(resp: Response): Promise<TechnitiumResponse> {
+    if (!resp.ok) {
+      throw new UpstreamError(`Technitium returned HTTP ${resp.status}`);
+    }
+    try {
+      return (await resp.json()) as TechnitiumResponse;
+    } catch {
+      throw new UpstreamError("Technitium returned a non-JSON response");
+    }
   }
 
   async callOrThrow(
@@ -104,7 +151,7 @@ export class TechnitiumClient {
     const result = await this.call(endpoint, params);
 
     if (result.status !== "ok") {
-      throw new Error(
+      throw new UpstreamError(
         result.errorMessage || `API error: ${result.status}`
       );
     }
@@ -112,101 +159,61 @@ export class TechnitiumClient {
     return result.response || {};
   }
 
+  /**
+   * Fetch an endpoint whose success body is raw text (e.g. a BIND zone export)
+   * but whose error body is a JSON envelope. Re-authenticates once on an
+   * expired token and re-validates the retried response.
+   */
   async callRawText(
     endpoint: string,
     params: Record<string, string> = {}
   ): Promise<string> {
     await this.ensureAuth();
 
-    const body = new URLSearchParams({
-      ...params,
-      token: this.sessionToken!,
-    });
+    let text = await this.sendRawOnce(endpoint, params);
 
-    const resp = await fetch(`${this.config.url}${endpoint}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
+    if (this.isInvalidTokenText(text)) {
+      this.sessionToken = null;
+      audit.logAuth("token_expired", false);
+      await this.ensureAuth();
+      text = await this.sendRawOnce(endpoint, params);
+    }
 
-    const text = await resp.text();
-
-    // Check if it's actually a JSON error response
-    try {
-      const json = JSON.parse(text) as TechnitiumResponse;
-      if (json.status === "invalid-token") {
-        this.sessionToken = null;
-        audit.logAuth("token_expired", false);
-        await this.ensureAuth();
-        const retryBody = new URLSearchParams({
-          ...params,
-          token: this.sessionToken!,
-        });
-        const retryResp = await fetch(`${this.config.url}${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: retryBody.toString(),
-        });
-        return retryResp.text();
-      }
-      if (json.status !== "ok") {
-        throw new Error(json.errorMessage || `API error: ${json.status}`);
-      }
-    } catch (e) {
-      if (e instanceof SyntaxError) {
-        // Not JSON — this is the raw text response we want
-        return text;
-      }
-      throw e;
+    // A JSON envelope here means an error (raw success bodies are not JSON).
+    const parsed = this.tryParseEnvelope(text);
+    if (parsed && parsed.status !== "ok") {
+      throw new UpstreamError(
+        parsed.errorMessage || `API error: ${parsed.status}`
+      );
     }
 
     return text;
   }
 
-  async callRawTextGet(
+  private async sendRawOnce(
     endpoint: string,
-    params: Record<string, string> = {}
+    params: Record<string, string>
   ): Promise<string> {
-    await this.ensureAuth();
-
-    const qs = new URLSearchParams({
-      ...params,
-      token: this.sessionToken!,
-    });
-
-    const resp = await fetch(`${this.config.url}${endpoint}?${qs.toString()}`, {
-      method: "GET",
-    });
-
-    const text = await resp.text();
-
-    try {
-      const json = JSON.parse(text) as TechnitiumResponse;
-      if (json.status === "invalid-token") {
-        this.sessionToken = null;
-        audit.logAuth("token_expired", false);
-        await this.ensureAuth();
-        const retryQs = new URLSearchParams({
-          ...params,
-          token: this.sessionToken!,
-        });
-        const retryResp = await fetch(
-          `${this.config.url}${endpoint}?${retryQs.toString()}`,
-          { method: "GET" }
-        );
-        return retryResp.text();
-      }
-      if (json.status !== "ok") {
-        throw new Error(json.errorMessage || `API error: ${json.status}`);
-      }
-    } catch (e) {
-      if (e instanceof SyntaxError) {
-        return text;
-      }
-      throw e;
+    const resp = await this.sendOnce(endpoint, params);
+    if (!resp.ok) {
+      throw new UpstreamError(
+        `Technitium returned HTTP ${resp.status} for ${endpoint}`
+      );
     }
+    return resp.text();
+  }
 
-    return text;
+  private isInvalidTokenText(text: string): boolean {
+    const parsed = this.tryParseEnvelope(text);
+    return parsed?.status === "invalid-token";
+  }
+
+  private tryParseEnvelope(text: string): TechnitiumResponse | null {
+    try {
+      return JSON.parse(text) as TechnitiumResponse;
+    } catch {
+      return null;
+    }
   }
 
   clearToken(): void {

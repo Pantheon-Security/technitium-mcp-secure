@@ -1,5 +1,21 @@
 import { TechnitiumClient } from "../client.js";
 import { ToolEntry } from "../types.js";
+import { ValidationError } from "../errors.js";
+import {
+  validateForwarders,
+  validateBlockListUrls,
+  validateReverseProxyAcl,
+} from "../validate.js";
+
+/** Per-key validators for free-text settings that reach privileged sinks. */
+const SETTING_VALIDATORS: Record<string, (v: string) => string> = {
+  forwarders: validateForwarders,
+  blockListUrls: validateBlockListUrls,
+  reverseProxyNetworkACL: validateReverseProxyAcl,
+};
+
+const DEFAULT_DISABLE_BLOCKING_MINUTES = 5;
+const MAX_DISABLE_BLOCKING_MINUTES = 60;
 
 export function settingsTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -82,14 +98,14 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
         const params: Record<string, string> = {};
         for (const [key, value] of Object.entries(args)) {
           if (allowed.has(key) && value !== undefined) {
-            params[key] = String(value);
+            const raw = String(value);
+            const validate = SETTING_VALIDATORS[key];
+            params[key] = validate ? validate(raw) : raw;
           }
         }
         if (Object.keys(params).length === 0) {
-          return JSON.stringify(
-            { error: "No settings provided. Use dns_get_settings to see available keys." },
-            null,
-            2
+          throw new ValidationError(
+            "No settings provided. Use dns_get_settings to see available keys."
           );
         }
         const data = await client.callOrThrow("/api/settings/set", params);
@@ -142,8 +158,8 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const minutes =
           typeof args.minutes === "number" && args.minutes > 0
-            ? Math.min(args.minutes, 60)
-            : 5;
+            ? Math.min(args.minutes, MAX_DISABLE_BLOCKING_MINUTES)
+            : DEFAULT_DISABLE_BLOCKING_MINUTES;
         const data = await client.callOrThrow(
           "/api/settings/temporaryDisableBlocking",
           { minutes: String(minutes) }
