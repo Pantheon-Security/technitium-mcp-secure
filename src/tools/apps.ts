@@ -31,6 +31,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      openWorld: true,
       untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/apps/listStoreApps");
@@ -55,6 +56,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      openWorld: true,
       handler: async (args) => {
         const name = validateStringLength(args.name as string, 200, "App name");
         const data = await client.callOrThrow(
@@ -90,6 +92,8 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
+      openWorld: true,
       handler: async (args) => {
         const name = validateStringLength(args.name as string, 200, "App name");
         if (args.confirm !== true) {

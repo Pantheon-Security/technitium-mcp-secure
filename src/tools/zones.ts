@@ -76,6 +76,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         if (args.confirm !== true) {

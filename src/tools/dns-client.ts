@@ -53,6 +53,7 @@ export function dnsClientTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      openWorld: true,
       untrusted: true,
       handler: async (args) => {
         const params: Record<string, string> = {

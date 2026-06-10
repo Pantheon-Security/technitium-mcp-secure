@@ -129,6 +129,8 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
+      rateTier: "mutate",
       handler: async (args) => {
         const domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/allowed/delete", {
@@ -158,6 +160,8 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
+      rateTier: "mutate",
       handler: async (args) => {
         const domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/blocked/delete", {
@@ -187,6 +191,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
           return JSON.stringify(
@@ -223,6 +228,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
           return JSON.stringify(

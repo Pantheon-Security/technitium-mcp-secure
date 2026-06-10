@@ -127,6 +127,8 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      rateTier: "destructive",
+      openWorld: true,
       handler: async () => {
         const data = await client.callOrThrow(
           "/api/settings/forceUpdateBlockLists"
@@ -148,13 +150,16 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
           properties: {
             minutes: {
               type: "number",
+              minimum: 1,
+              maximum: MAX_DISABLE_BLOCKING_MINUTES,
               description:
-                "Number of minutes to disable blocking (default: 5)",
+                "Number of minutes to disable blocking (default: 5, max: 60)",
             },
           },
         },
       },
       readonly: false,
+      rateTier: "destructive",
       handler: async (args) => {
         const minutes =
           typeof args.minutes === "number" && args.minutes > 0

@@ -23,10 +23,13 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
           properties: {
             pageNumber: {
               type: "number",
+              minimum: 1,
               description: "Page number (default: 1)",
             },
             entriesPerPage: {
               type: "number",
+              minimum: 1,
+              maximum: MAX_ENTRIES_PER_PAGE,
               description: "Entries per page (default: 25, max: 100)",
             },
             domain: {

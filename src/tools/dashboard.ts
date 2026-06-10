@@ -128,6 +128,7 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: true,
+      openWorld: true,
       untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/user/checkForUpdate");

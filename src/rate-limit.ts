@@ -2,6 +2,8 @@ interface RateLimitBucket {
   timestamps: number[];
 }
 
+export type RateTier = "destructive" | "mutate";
+
 export class RateLimiter {
   private buckets = new Map<string, RateLimitBucket>();
   private globalBucket: RateLimitBucket = { timestamps: [] };
@@ -11,32 +13,26 @@ export class RateLimiter {
 
   private toolLimits = new Map<string, { maxRequests: number; windowMs: number }>();
 
+  /**
+   * @param toolTiers per-tool rate tier, derived from the registered tools so
+   *   the limits can never drift out of sync with a renamed or new tool.
+   */
   constructor(
+    toolTiers: Map<string, RateTier> = new Map(),
     globalMaxRequests = 100,
     globalWindowMs = 60_000
   ) {
     this.globalMaxRequests = globalMaxRequests;
     this.globalWindowMs = globalWindowMs;
 
-    // Stricter limits for destructive operations
     const destructiveLimits = { maxRequests: 5, windowMs: 60_000 };
     const mutateLimits = { maxRequests: 10, windowMs: 60_000 };
 
-    for (const tool of [
-      "dns_delete_zone", "dns_delete_record", "dns_flush_cache",
-      "dns_flush_allowed", "dns_flush_blocked", "dns_uninstall_app",
-      "dns_update_blocklists", "dns_temp_disable_blocking",
-    ]) {
-      this.toolLimits.set(tool, destructiveLimits);
-    }
-    for (const tool of [
-      "dns_create_zone", "dns_add_record", "dns_update_record",
-      "dns_block_domain", "dns_allow_domain",
-      "dns_remove_allowed", "dns_remove_blocked", "dns_delete_cached",
-      "dns_enable_zone", "dns_disable_zone", "dns_set_zone_options",
-      "dns_set_settings", "dns_install_app",
-    ]) {
-      this.toolLimits.set(tool, mutateLimits);
+    for (const [tool, tier] of toolTiers) {
+      this.toolLimits.set(
+        tool,
+        tier === "destructive" ? destructiveLimits : mutateLimits
+      );
     }
   }
 

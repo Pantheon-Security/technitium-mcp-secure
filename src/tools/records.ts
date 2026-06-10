@@ -167,6 +167,8 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             },
             ttl: {
               type: "number",
+              minimum: 0,
+              maximum: 2147483647,
               description: "TTL in seconds (default: 3600)",
             },
             overwrite: {
@@ -176,6 +178,8 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             },
             priority: {
               type: "number",
+              minimum: 0,
+              maximum: 65535,
               description: "Priority for MX records",
             },
           },
@@ -245,7 +249,12 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
               type: "string",
               description: "New domain name (to rename)",
             },
-            ttl: { type: "number", description: "New TTL in seconds" },
+            ttl: {
+              type: "number",
+              minimum: 0,
+              maximum: 2147483647,
+              description: "New TTL in seconds",
+            },
           },
           required: ["zone", "domain", "type", "value", "newValue"],
         },
@@ -328,6 +337,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      destructive: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         const domain = validateDomain(args.domain as string);
