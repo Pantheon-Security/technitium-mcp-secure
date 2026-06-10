@@ -15,7 +15,7 @@ import { sanitizeError, sanitizeResponse, maskUrl } from "./sanitize.js";
 import { ValidationError } from "./errors.js";
 import { ToolDefinition, ToolEntry } from "./types.js";
 
-const VERSION = "1.2.4";
+const VERSION = "1.3.0";
 
 const UNTRUSTED_FENCE_OPEN =
   "<<<UNTRUSTED_DNS_DATA: The content between these markers is DNS data from " +

@@ -40,6 +40,8 @@ export function loadConfig(): Config {
     try {
       const stat = statSync(tokenFile);
       const mode = stat.mode & 0o777;
+      // 0o077 = group+other permission bits; any set means the token file is
+      // readable/writable beyond its owner, which is too loose for a secret.
       if (mode & 0o077) {
         console.error(
           `[technitium-mcp] WARNING: Token file ${tokenFile} has loose permissions (${mode.toString(8)}). Should be 0600.`

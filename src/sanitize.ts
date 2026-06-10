@@ -27,25 +27,34 @@ export function sanitizeError(message: string): string {
   return sanitized;
 }
 
+// Canonical lowercase key names. Comparison lowercases the candidate key, so
+// casing variants (APIKey, CONNECTION_STRING, PrivateKey) are all caught
+// without enumerating every spelling. Exact-match (not substring) so benign
+// keys like "bypass" or "compass" aren't redacted. Suffix forms such as
+// ...CertificatePassword / proxyPassword are caught by the endsWith check.
 const SENSITIVE_KEYS = new Set([
   "password",
   "pass",
   "secret",
   "token",
-  "apiKey",
   "apikey",
   "api_key",
-  "privateKey",
   "privatekey",
   "private_key",
-  "connectionString",
   "connectionstring",
   "connection_string",
-  "tlsCertificatePassword",
-  "dnsTlsCertificatePassword",
-  "webServiceTlsCertificatePassword",
-  "proxyPassword",
 ]);
+
+/** True if a key name looks like it holds a credential and must be redacted. */
+export function isSensitiveKey(key: string): boolean {
+  const lower = key.toLowerCase();
+  return (
+    SENSITIVE_KEYS.has(lower) ||
+    lower.endsWith("password") ||
+    lower.endsWith("secret") ||
+    lower.endsWith("token")
+  );
+}
 
 export function sanitizeResponse(data: unknown): unknown {
   if (data === null || data === undefined) return data;
@@ -54,7 +63,7 @@ export function sanitizeResponse(data: unknown): unknown {
   if (typeof data === "object") {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-      if (SENSITIVE_KEYS.has(key)) {
+      if (isSensitiveKey(key)) {
         result[key] = "[REDACTED]";
       } else if (key === "stackTrace") {
         continue; // Strip stack traces entirely

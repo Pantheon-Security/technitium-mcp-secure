@@ -4,7 +4,17 @@ import {
   sanitizeError,
   sanitizeResponse,
   maskUrl,
+  isSensitiveKey,
 } from "../src/sanitize.js";
+
+test("isSensitiveKey catches casing/suffix variants but not benign lookalikes", () => {
+  for (const k of ["password", "APIKey", "CONNECTION_STRING", "proxyPassword", "dnsTlsCertificatePassword", "authToken"]) {
+    assert.equal(isSensitiveKey(k), true, `${k} should be sensitive`);
+  }
+  for (const k of ["bypass", "compass", "blockingBypassList", "username", "domain"]) {
+    assert.equal(isSensitiveKey(k), false, `${k} should NOT be sensitive`);
+  }
+});
 
 test("sanitizeError redacts hex tokens", () => {
   const out = sanitizeError("token=0123456789abcdef0123456789abcdef failed");

@@ -22,6 +22,9 @@ export function parseBind(
     const ttl = parseInt(ttlStr, 10);
     if (isNaN(ttl)) continue;
 
+    // Resolve the record name to an FQDN: "@" is the zone apex; a name that
+    // already contains a dot is treated as absolute (drop any trailing dot);
+    // a bare label is relative and gets the zone appended.
     const fqdn =
       name === "@" ? zone : name.includes(".") ? name.replace(/\.$/, "") : `${name}.${zone}`;
 

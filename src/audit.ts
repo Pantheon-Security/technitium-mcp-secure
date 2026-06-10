@@ -1,4 +1,4 @@
-const SENSITIVE_ARG_KEYS = new Set(["password", "pass", "token", "secret"]);
+import { isSensitiveKey } from "./sanitize.js";
 
 /** Long string args are truncated in the audit log to keep lines bounded. */
 const MAX_AUDIT_ARG_LENGTH = 200;
@@ -8,7 +8,7 @@ function sanitizeArgs(
 ): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
-    if (SENSITIVE_ARG_KEYS.has(key.toLowerCase())) {
+    if (isSensitiveKey(key)) {
       sanitized[key] = "[REDACTED]";
     } else if (typeof value === "string" && value.length > MAX_AUDIT_ARG_LENGTH) {
       sanitized[key] = value.substring(0, MAX_AUDIT_ARG_LENGTH) + "...[truncated]";
