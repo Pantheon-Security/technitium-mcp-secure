@@ -1,7 +1,7 @@
 import { TechnitiumClient } from "../client.js";
 import { ToolEntry } from "../types.js";
 import { validateDomain, validateRecordType, validateIp } from "../validate.js";
-import { UpstreamError } from "../errors.js";
+import { UpstreamError, ValidationError } from "../errors.js";
 
 /** Parse a BIND-format zone export into structured records */
 export function parseBind(
@@ -149,18 +149,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             },
             type: {
               type: "string",
-              enum: [
-                "A",
-                "AAAA",
-                "CNAME",
-                "MX",
-                "NS",
-                "PTR",
-                "SOA",
-                "SRV",
-                "TXT",
-                "CAA",
-              ],
+              enum: ["A", "AAAA", "CNAME", "MX", "NS", "PTR", "TXT"],
               description: "Record type",
             },
             value: {
@@ -203,7 +192,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           overwrite: args.overwrite ? "true" : "false",
         };
 
-        if (args.ttl) params.ttl = String(args.ttl);
+        if (args.ttl !== undefined) params.ttl = String(args.ttl);
 
         if (recType === "A" || recType === "AAAA") {
           params.ipAddress = validateIp(value);
@@ -215,14 +204,15 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           params.ptrName = validateDomain(value);
         } else if (recType === "MX") {
           params.exchange = validateDomain(value);
-          if (args.priority) params.preference = String(args.priority);
+          if (args.priority !== undefined) params.preference = String(args.priority);
         } else if (recType === "TXT") {
           params.text = value;
-        } else if (recType === "SRV") {
-          params.target = value;
-          if (args.priority) params.priority = String(args.priority);
-        } else if (recType === "CAA") {
-          params.value = value;
+        } else {
+          // SOA/SRV/CAA need multi-field values this single-value tool can't
+          // supply; reject rather than send a malformed add upstream.
+          throw new ValidationError(
+            `Record type ${recType} is not supported by dns_add_record`
+          );
         }
 
         const data = await client.callOrThrow(
@@ -276,7 +266,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
 
         if (args.newDomain)
           params.newDomain = validateDomain(args.newDomain as string);
-        if (args.ttl) params.ttl = String(args.ttl);
+        if (args.ttl !== undefined) params.ttl = String(args.ttl);
 
         const value = args.value as string;
         const newValue = args.newValue as string;

@@ -14,7 +14,7 @@ import { RateLimiter } from "./rate-limit.js";
 import { sanitizeError, sanitizeResponse, maskUrl } from "./sanitize.js";
 import { ValidationError } from "./errors.js";
 import { ToolDefinition } from "./types.js";
-import { withMetadata, deriveRateTiers, fenceIfUntrusted } from "./registry.js";
+import { withMetadata, deriveRateTiers, buildToolResult } from "./registry.js";
 
 const VERSION = "1.3.0";
 
@@ -90,19 +90,11 @@ async function main(): Promise<void> {
     try {
       const rawResult = await tool.handler((args || {}) as Record<string, unknown>);
 
-      // Sanitize the response. When it parses as a JSON object, also expose it
-      // as structuredContent so SDK-aware hosts get machine-parseable output.
-      let sanitizedText: string;
-      let structured: Record<string, unknown> | undefined;
-      try {
-        const parsed = sanitizeResponse(JSON.parse(rawResult));
-        sanitizedText = JSON.stringify(parsed, null, 2);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          structured = parsed as Record<string, unknown>;
-        }
-      } catch {
-        sanitizedText = rawResult;
-      }
+      const { text, structuredContent } = buildToolResult(
+        tool,
+        rawResult,
+        sanitizeResponse
+      );
 
       audit.logToolCall(
         name,
@@ -111,13 +103,9 @@ async function main(): Promise<void> {
         Date.now() - startTime
       );
 
-      // Fence third-party-controlled output so injected instructions
-      // inside DNS data are presented to the model as data, not directives
-      const text = fenceIfUntrusted(tool, sanitizedText);
-
       return {
         content: [{ type: "text" as const, text }],
-        ...(structured && { structuredContent: structured }),
+        ...(structuredContent && { structuredContent }),
       };
     } catch (error) {
       // Validation errors are author-constructed and safe to surface verbatim;

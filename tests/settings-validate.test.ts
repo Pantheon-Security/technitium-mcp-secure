@@ -6,7 +6,26 @@ import {
   validateBlockListUrls,
   validateCidrOrIp,
   validatePublicHttpUrl,
+  validateIpOrHostname,
 } from "../src/validate.js";
+
+test("validateIpOrHostname blocks SSRF via private/metadata DoH URLs", () => {
+  for (const bad of [
+    "https://127.0.0.1/dns-query",
+    "https://169.254.169.254/latest/meta-data/",
+    "https://10.0.0.5/dns-query",
+    "https://localhost/dns-query",
+  ]) {
+    assert.throws(() => validateIpOrHostname(bad), /must|Invalid/, `should reject ${bad}`);
+  }
+});
+
+test("validateIpOrHostname still allows public DoH and private resolver IPs", () => {
+  assert.equal(validateIpOrHostname("https://dns.google/dns-query"), "https://dns.google/dns-query");
+  // querying/forwarding to an internal resolver is a legitimate homelab use
+  assert.equal(validateIpOrHostname("192.168.1.1"), "192.168.1.1");
+  assert.equal(validateIpOrHostname("dns.example.com"), "dns.example.com");
+});
 
 test("validateForwarders accepts IPs, hostnames, and DoH URLs", () => {
   assert.equal(validateForwarders("1.1.1.1, dns.google"), "1.1.1.1, dns.google");

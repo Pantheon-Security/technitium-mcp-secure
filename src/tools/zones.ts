@@ -1,6 +1,18 @@
 import { TechnitiumClient } from "../client.js";
 import { ToolEntry } from "../types.js";
-import { validateDomain, validateZoneType } from "../validate.js";
+import {
+  validateDomain,
+  validateZoneType,
+  validateReverseProxyAcl,
+  validateForwarders,
+} from "../validate.js";
+
+/** Per-key validators for free-text zone-option values that reach the API. */
+const ZONE_OPTION_VALIDATORS: Record<string, (v: string) => string> = {
+  // both are comma-separated network/host lists forwarded to /zones/options/set
+  zoneTransferAllowedNetworks: validateReverseProxyAcl,
+  notifyNameServers: validateForwarders,
+};
 
 export function zoneTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -214,8 +226,10 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         ]);
         const params: Record<string, string> = { zone };
         for (const [key, value] of Object.entries(args)) {
-          if (allowed.has(key) && value !== undefined) {
-            params[key] = String(value);
+          if (key !== "zone" && allowed.has(key) && value !== undefined) {
+            const raw = String(value);
+            const validate = ZONE_OPTION_VALIDATORS[key];
+            params[key] = validate ? validate(raw) : raw;
           }
         }
         const data = await client.callOrThrow(

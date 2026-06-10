@@ -33,11 +33,15 @@ export function validateIpOrHostname(value: string): string {
     throw new ValidationError("Server address is required");
   }
   const trimmed = value.trim();
+  // Bare IPs and hostnames are allowed even when private — querying or
+  // forwarding to an internal resolver (e.g. 192.168.1.1) is a normal homelab
+  // use. An https:// value is a DoH endpoint the server fetches over HTTP, so
+  // it carries SSRF risk and goes through the public-URL guard.
   if (isIP(trimmed) !== 0) {
     return trimmed;
   }
   if (trimmed.startsWith("https://")) {
-    return trimmed;
+    return validatePublicHttpUrl(trimmed);
   }
   if (DOMAIN_RE.test(trimmed) && trimmed.length <= 253) {
     return trimmed;

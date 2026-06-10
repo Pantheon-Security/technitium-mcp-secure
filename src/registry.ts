@@ -18,6 +18,39 @@ export function fenceIfUntrusted(entry: ToolEntry, text: string): string {
   return `${UNTRUSTED_FENCE_OPEN}\n${text}\n${UNTRUSTED_FENCE_CLOSE}`;
 }
 
+export interface ToolResult {
+  text: string;
+  structuredContent?: Record<string, unknown>;
+}
+
+/**
+ * Build the MCP result for a tool's raw (JSON-string) output:
+ *  - sanitize, then fence the text channel for untrusted tools;
+ *  - expose structuredContent ONLY for trusted tools — that channel is unfenced,
+ *    so emitting it for an untrusted tool would hand a structure-aware host the
+ *    injected DNS text outside the untrusted-data markers (the fence bypass).
+ */
+export function buildToolResult(
+  entry: ToolEntry,
+  rawResult: string,
+  sanitize: (data: unknown) => unknown
+): ToolResult {
+  let parsed: unknown;
+  let sanitizedText: string;
+  try {
+    parsed = sanitize(JSON.parse(rawResult));
+    sanitizedText = JSON.stringify(parsed, null, 2);
+  } catch {
+    return { text: fenceIfUntrusted(entry, rawResult) };
+  }
+
+  const result: ToolResult = { text: fenceIfUntrusted(entry, sanitizedText) };
+  if (!entry.untrusted && parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    result.structuredContent = parsed as Record<string, unknown>;
+  }
+  return result;
+}
+
 /** Add `additionalProperties: false` and derived safety annotations to a tool. */
 export function withMetadata(t: ToolEntry): ToolDefinition {
   return {
