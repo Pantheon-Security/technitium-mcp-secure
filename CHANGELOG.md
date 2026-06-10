@@ -4,6 +4,31 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-06-10
+
+Closes gaps an adversarial re-review found in the 1.3.0 remediation (verdict
+was GO; these were the incomplete fixes). All carry red-proven regression gates.
+
+### Security
+
+- **structuredContent fence bypass.** Untrusted DNS data was fenced in the text
+  channel but returned unfenced via `structuredContent`. Untrusted tools now
+  emit fenced text only — never structuredContent.
+- **SSRF in `validateIpOrHostname`.** `dns_resolve`'s `server` param accepted
+  `https://` DoH URLs to loopback/metadata/private hosts; that branch now goes
+  through the public-URL guard. Bare IPs/hostnames remain allowed (internal
+  resolvers are a legitimate homelab use).
+- **Validation drift in `dns_set_zone_options`.** `zoneTransferAllowedNetworks`
+  / `notifyNameServers` were forwarded unvalidated; they now use the same
+  per-key validators as `dns_set_settings`.
+
+### Fixed
+
+- `dns_add_record` advertised SOA/SRV/CAA it could not add (always failed
+  upstream); enum trimmed to supported types with an explicit reject otherwise.
+- `ttl=0` / `priority=0` were dropped by truthiness checks despite the schema
+  allowing `minimum: 0`; now forwarded via `!== undefined`.
+
 ## [1.3.0] - 2026-06-10
 
 A security and reliability release following a full code review. Hardens the
@@ -65,4 +90,5 @@ HTTP client, adds a test suite and CI, and tightens the MCP tool surface.
 
 Earlier history (≤ 1.2.4) is available in the git log.
 
+[1.3.1]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.1
 [1.3.0]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.0

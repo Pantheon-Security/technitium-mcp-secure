@@ -16,7 +16,7 @@ import { ValidationError } from "./errors.js";
 import { ToolDefinition } from "./types.js";
 import { withMetadata, deriveRateTiers, buildToolResult } from "./registry.js";
 
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 
 async function main(): Promise<void> {
   const config = loadConfig();
