@@ -27,7 +27,7 @@ export function dnssecTools(client: TechnitiumClient): ToolEntry[] {
           "/api/zones/dnssec/properties/get",
           { zone }
         );
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -52,7 +52,7 @@ export function dnssecTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/zones/dnssec/viewDS", {
           zone,
         });
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
   ];

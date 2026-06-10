@@ -24,31 +24,32 @@ export interface ToolResult {
 }
 
 /**
- * Build the MCP result for a tool's raw (JSON-string) output:
- *  - sanitize, then fence the text channel for untrusted tools;
- *  - expose structuredContent ONLY for trusted tools — that channel is unfenced,
- *    so emitting it for an untrusted tool would hand a structure-aware host the
- *    injected DNS text outside the untrusted-data markers (the fence bypass).
+ * Build the MCP result from a tool handler's return value:
+ *  - a raw string payload (e.g. a BIND export) is fenced as-is for untrusted
+ *    tools (matching the prior pass-through behaviour);
+ *  - an object is sanitized then pretty-printed; the text channel is fenced for
+ *    untrusted tools;
+ *  - structuredContent is exposed ONLY for trusted tools — that channel is
+ *    unfenced, so emitting it for an untrusted tool would hand a structure-aware
+ *    host the injected DNS text outside the untrusted-data markers (fence bypass).
  */
 export function buildToolResult(
   entry: ToolEntry,
-  rawResult: string,
+  result: unknown,
   sanitize: (data: unknown) => unknown
 ): ToolResult {
-  let parsed: unknown;
-  let sanitizedText: string;
-  try {
-    parsed = sanitize(JSON.parse(rawResult));
-    sanitizedText = JSON.stringify(parsed, null, 2);
-  } catch {
-    return { text: fenceIfUntrusted(entry, rawResult) };
+  if (typeof result === "string") {
+    return { text: fenceIfUntrusted(entry, result) };
   }
 
-  const result: ToolResult = { text: fenceIfUntrusted(entry, sanitizedText) };
-  if (!entry.untrusted && parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-    result.structuredContent = parsed as Record<string, unknown>;
+  const sanitized = sanitize(result);
+  const out: ToolResult = {
+    text: fenceIfUntrusted(entry, JSON.stringify(sanitized, null, 2)),
+  };
+  if (!entry.untrusted && sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)) {
+    out.structuredContent = sanitized as Record<string, unknown>;
   }
-  return result;
+  return out;
 }
 
 /** Add `additionalProperties: false` and derived safety annotations to a tool. */

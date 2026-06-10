@@ -26,7 +26,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         const params: Record<string, string> = {};
         if (args.domain) params.domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/blocked/list", params);
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -52,11 +52,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/blocked/add", {
           domain,
         });
-        return JSON.stringify(
-          { success: true, blocked: domain, ...data },
-          null,
-          2
-        );
+        return { success: true, blocked: domain, ...data };
       },
     },
     {
@@ -81,7 +77,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         const params: Record<string, string> = {};
         if (args.domain) params.domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/allowed/list", params);
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -107,11 +103,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/allowed/add", {
           domain,
         });
-        return JSON.stringify(
-          { success: true, allowed: domain, ...data },
-          null,
-          2
-        );
+        return { success: true, allowed: domain, ...data };
       },
     },
     {
@@ -139,11 +131,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/allowed/delete", {
           domain,
         });
-        return JSON.stringify(
-          { success: true, removed: domain, ...data },
-          null,
-          2
-        );
+        return { success: true, removed: domain, ...data };
       },
     },
     {
@@ -171,11 +159,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/blocked/delete", {
           domain,
         });
-        return JSON.stringify(
-          { success: true, removed: domain, ...data },
-          null,
-          2
-        );
+        return { success: true, removed: domain, ...data };
       },
     },
     {
@@ -199,21 +183,13 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
       destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
-          return JSON.stringify(
-            {
+          return {
               warning:
                 "This will remove ALL domains from the allow list. Set confirm=true to proceed.",
-            },
-            null,
-            2
-          );
+            };
         }
         const data = await client.callOrThrow("/api/allowed/flush");
-        return JSON.stringify(
-          { success: true, message: "Allow list flushed", ...data },
-          null,
-          2
-        );
+        return { success: true, message: "Allow list flushed", ...data };
       },
     },
     {
@@ -237,21 +213,13 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
       destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
-          return JSON.stringify(
-            {
+          return {
               warning:
                 "This will remove ALL domains from the custom block list. Set confirm=true to proceed.",
-            },
-            null,
-            2
-          );
+            };
         }
         const data = await client.callOrThrow("/api/blocked/flush");
-        return JSON.stringify(
-          { success: true, message: "Block list flushed", ...data },
-          null,
-          2
-        );
+        return { success: true, message: "Block list flushed", ...data };
       },
     },
   ];

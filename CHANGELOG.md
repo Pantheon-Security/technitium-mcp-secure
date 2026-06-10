@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 2026-06-10
+
+Quality refactors from the re-review backlog — behaviour-preserving, all gates
+green (87 tests).
+
+### Changed
+
+- Tool handlers now return their result as a value; the dispatcher owns
+  sanitization and JSON serialization (removes the double parse/stringify round
+  trip and the parse-and-catch in the response path).
+- Record-type → API-field mapping extracted into one `RECORD_FIELDS` descriptor
+  table driving add/update/delete (previously hand-written three times and a
+  source of drift bugs). TXT values are now length-bounded on add/update too.
+- `dns_set_settings` / `dns_set_zone_options` derive their handler allowlist
+  from the shared schema-properties object instead of a duplicate key list.
+
+### Added
+
+- `idempotentHint` annotation on set-state writes, deletes, and flushes.
+
 ## [1.3.2] - 2026-06-10
 
 Clears the substantive pre-existing backlog from the re-review (none blocked
@@ -124,6 +144,7 @@ HTTP client, adds a test suite and CI, and tightens the MCP tool surface.
 
 Earlier history (≤ 1.2.4) is available in the git log.
 
+[1.3.3]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.3
 [1.3.2]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.2
 [1.3.1]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.1
 [1.3.0]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.0

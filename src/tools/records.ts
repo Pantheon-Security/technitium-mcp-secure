@@ -181,7 +181,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             zone,
             domain,
           });
-          return JSON.stringify(data, null, 2);
+          return data;
         }
 
         // No domain specified — find all zones that match or are subzones of the requested name
@@ -205,7 +205,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             zone,
             domain: zone,
           });
-          return JSON.stringify(data, null, 2);
+          return data;
         }
 
         if (allZones.length === 1 && allZones[0].name === zone) {
@@ -213,11 +213,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           const bindText = await client.callRawText("/api/zones/export", {
             zone,
           });
-          return JSON.stringify(
-            { zone, records: parseBind(zone, bindText) },
-            null,
-            2
-          );
+          return { zone, records: parseBind(zone, bindText) };
         }
 
         // Multiple zones or parent-level query — export each and combine
@@ -235,11 +231,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             });
           }
         }
-        return JSON.stringify(
-          { totalZones: results.length, zones: results },
-          null,
-          2
-        );
+        return { totalZones: results.length, zones: results };
       },
     },
     {
@@ -315,7 +307,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           "/api/zones/records/add",
           params
         );
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -375,7 +367,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           "/api/zones/records/update",
           params
         );
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -426,28 +418,20 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         params[spec.field] = value;
 
         if (args.confirm !== true) {
-          return JSON.stringify(
-            {
+          return {
               warning: `This will delete the ${recType} record for '${domain}' (value: ${value}). Set confirm=true to proceed.`,
-            },
-            null,
-            2
-          );
+            };
         }
 
         const data = await client.callOrThrow(
           "/api/zones/records/delete",
           params
         );
-        return JSON.stringify(
-          {
+        return {
             success: true,
             deleted: `${recType} ${domain} -> ${value}`,
             ...data,
-          },
-          null,
-          2
-        );
+          };
       },
     },
   ];

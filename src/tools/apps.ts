@@ -17,7 +17,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       readonly: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/apps/list");
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -35,7 +35,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/apps/listStoreApps");
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -63,11 +63,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
           "/api/apps/downloadAndInstall",
           { name }
         );
-        return JSON.stringify(
-          { success: true, installed: name, ...data },
-          null,
-          2
-        );
+        return { success: true, installed: name, ...data };
       },
     },
     {
@@ -98,20 +94,12 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const name = validateStringLength(args.name as string, 200, "App name");
         if (args.confirm !== true) {
-          return JSON.stringify(
-            {
+          return {
               warning: `This will uninstall the app '${name}' and remove its data. Set confirm=true to proceed.`,
-            },
-            null,
-            2
-          );
+            };
         }
         const data = await client.callOrThrow("/api/apps/uninstall", { name });
-        return JSON.stringify(
-          { success: true, uninstalled: name, ...data },
-          null,
-          2
-        );
+        return { success: true, uninstalled: name, ...data };
       },
     },
     {
@@ -134,7 +122,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const name = validateStringLength(args.name as string, 200, "App name");
         const data = await client.callOrThrow("/api/apps/config/get", { name });
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
   ];

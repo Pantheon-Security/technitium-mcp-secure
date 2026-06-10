@@ -25,21 +25,13 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
       destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
-          return JSON.stringify(
-            {
+          return {
               warning:
                 "This will flush the entire DNS cache. All subsequent queries will be resolved fresh from upstream, which may temporarily increase latency. Set confirm=true to proceed.",
-            },
-            null,
-            2
-          );
+            };
         }
         const data = await client.callOrThrow("/api/cache/flush");
-        return JSON.stringify(
-          { success: true, message: "Cache flushed", ...data },
-          null,
-          2
-        );
+        return { success: true, message: "Cache flushed", ...data };
       },
     },
     {
@@ -64,7 +56,7 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
         const params: Record<string, string> = {};
         if (args.domain) params.domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/cache/list", params);
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -90,11 +82,7 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/cache/delete", { domain });
-        return JSON.stringify(
-          { success: true, deleted: domain, ...data },
-          null,
-          2
-        );
+        return { success: true, deleted: domain, ...data };
       },
     },
   ];

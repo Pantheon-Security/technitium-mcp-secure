@@ -43,7 +43,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       readonly: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/zones/list");
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -77,7 +77,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
           zone,
           type,
         });
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -107,20 +107,12 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         if (args.confirm !== true) {
-          return JSON.stringify(
-            {
+          return {
               warning: `This will permanently delete zone '${zone}' and ALL its records. Set confirm=true to proceed.`,
-            },
-            null,
-            2
-          );
+            };
         }
         const data = await client.callOrThrow("/api/zones/delete", { zone });
-        return JSON.stringify(
-          { success: true, deleted: zone, ...data },
-          null,
-          2
-        );
+        return { success: true, deleted: zone, ...data };
       },
     },
     {
@@ -145,7 +137,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/zones/options/get", {
           zone,
         });
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -168,11 +160,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         const data = await client.callOrThrow("/api/zones/enable", { zone });
-        return JSON.stringify(
-          { success: true, enabled: zone, ...data },
-          null,
-          2
-        );
+        return { success: true, enabled: zone, ...data };
       },
     },
     {
@@ -196,11 +184,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         const data = await client.callOrThrow("/api/zones/disable", { zone });
-        return JSON.stringify(
-          { success: true, disabled: zone, ...data },
-          null,
-          2
-        );
+        return { success: true, disabled: zone, ...data };
       },
     },
     {
@@ -231,11 +215,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
           "/api/zones/options/set",
           params
         );
-        return JSON.stringify(
-          { success: true, zone, ...data },
-          null,
-          2
-        );
+        return { success: true, zone, ...data };
       },
     },
     {
@@ -259,7 +239,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         const text = await client.callRawText("/api/zones/export", { zone });
-        return JSON.stringify({ zone, zoneFile: text }, null, 2);
+        return { zone, zoneFile: text };
       },
     },
   ];

@@ -26,7 +26,10 @@ export interface ToolDefinition {
 }
 
 export interface ToolHandler {
-  (args: Record<string, unknown>): Promise<string>;
+  // Handlers return their result as a value (object, or a raw string for text
+  // payloads like a BIND export). The dispatcher owns sanitization and
+  // JSON serialization — handlers must not stringify.
+  (args: Record<string, unknown>): Promise<unknown>;
 }
 
 export interface ToolEntry {

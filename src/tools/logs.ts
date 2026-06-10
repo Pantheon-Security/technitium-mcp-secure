@@ -114,7 +114,7 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
         }
 
         const data = await client.callOrThrow("/api/logs/query", params);
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
   ];

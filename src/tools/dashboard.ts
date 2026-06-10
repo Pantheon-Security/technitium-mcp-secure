@@ -41,16 +41,12 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
         const cap = (arr: unknown): unknown[] =>
           Array.isArray(arr) ? arr.slice(0, TOP_N) : [];
 
-        return JSON.stringify(
-          {
+        return {
             stats: (data.stats as Record<string, unknown>) ?? {},
             topClients: cap(data.topClients),
             topDomains: cap(data.topDomains),
             topBlockedDomains: cap(data.topBlockedDomains),
-          },
-          null,
-          2
-        );
+          };
       },
     },
     {
@@ -94,8 +90,7 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
             ? ((failures / totalQueries) * 100).toFixed(1)
             : "0.0";
 
-        return JSON.stringify(
-          {
+        return {
             status: degraded.length === 0 ? "ok" : "degraded",
             ...(degraded.length > 0 && { unavailable: degraded }),
             version: settings.version,
@@ -111,10 +106,7 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
               blocked: s.totalBlocked || 0,
               cached: s.totalCached || 0,
             },
-          },
-          null,
-          2
-        );
+          };
       },
     },
     {
@@ -132,7 +124,7 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
       untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/user/checkForUpdate");
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
   ];

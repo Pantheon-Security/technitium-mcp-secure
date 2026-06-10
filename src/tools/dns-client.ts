@@ -73,7 +73,7 @@ export function dnsClientTools(client: TechnitiumClient): ToolEntry[] {
           "/api/dnsClient/resolve",
           params
         );
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
   ];

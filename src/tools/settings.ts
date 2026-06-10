@@ -71,7 +71,7 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
       readonly: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/settings/get");
-        return JSON.stringify(data, null, 2);
+        return data;
       },
     },
     {
@@ -102,11 +102,7 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
           );
         }
         const data = await client.callOrThrow("/api/settings/set", params);
-        return JSON.stringify(
-          { success: true, message: "Settings updated", ...data },
-          null,
-          2
-        );
+        return { success: true, message: "Settings updated", ...data };
       },
     },
     {
@@ -126,11 +122,7 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow(
           "/api/settings/forceUpdateBlockLists"
         );
-        return JSON.stringify(
-          { success: true, message: "Block list update triggered", ...data },
-          null,
-          2
-        );
+        return { success: true, message: "Block list update triggered", ...data };
       },
     },
     {
@@ -162,15 +154,11 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
           "/api/settings/temporaryDisableBlocking",
           { minutes: String(minutes) }
         );
-        return JSON.stringify(
-          {
+        return {
             success: true,
             message: `Blocking disabled for ${minutes} minutes`,
             ...data,
-          },
-          null,
-          2
-        );
+          };
       },
     },
   ];
