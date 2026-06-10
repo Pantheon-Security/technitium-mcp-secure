@@ -14,6 +14,20 @@ const ZONE_OPTION_VALIDATORS: Record<string, (v: string) => string> = {
   notifyNameServers: validateForwarders,
 };
 
+// Settable zone-option keys, once, feeding both the schema and the allowlist.
+const ZONE_OPTIONS_PROPERTIES = {
+  zone: { type: "string", description: "Zone domain name" },
+  disabled: { type: "boolean", description: "Set zone disabled state" },
+  zoneTransferAllowedNetworks: {
+    type: "string",
+    description: "Comma-separated list of IP/CIDR allowed for zone transfers",
+  },
+  notifyNameServers: {
+    type: "string",
+    description: "Comma-separated list of name server IPs to notify on changes",
+  },
+} as const;
+
 export function zoneTools(client: TechnitiumClient): ToolEntry[] {
   return [
     {
@@ -88,6 +102,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
@@ -149,6 +164,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         const data = await client.callOrThrow("/api/zones/enable", { zone });
@@ -176,6 +192,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
         const data = await client.callOrThrow("/api/zones/disable", { zone });
@@ -193,40 +210,18 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
           "Set configuration options for a zone. Pass the zone name plus any option key/value pairs to update (e.g. notify settings, zone transfer ACLs).",
         inputSchema: {
           type: "object",
-          properties: {
-            zone: {
-              type: "string",
-              description: "Zone domain name",
-            },
-            disabled: {
-              type: "boolean",
-              description: "Set zone disabled state",
-            },
-            zoneTransferAllowedNetworks: {
-              type: "string",
-              description:
-                "Comma-separated list of IP/CIDR allowed for zone transfers",
-            },
-            notifyNameServers: {
-              type: "string",
-              description:
-                "Comma-separated list of name server IPs to notify on changes",
-            },
-          },
+          properties: ZONE_OPTIONS_PROPERTIES,
           required: ["zone"],
         },
       },
       readonly: false,
+      idempotent: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
-        const allowed = new Set([
-          "disabled",
-          "zoneTransferAllowedNetworks",
-          "notifyNameServers",
-        ]);
+        // Allowlist derives from the schema keys (minus the zone selector).
         const params: Record<string, string> = { zone };
         for (const [key, value] of Object.entries(args)) {
-          if (key !== "zone" && allowed.has(key) && value !== undefined) {
+          if (key !== "zone" && key in ZONE_OPTIONS_PROPERTIES && value !== undefined) {
             const raw = String(value);
             const validate = ZONE_OPTION_VALIDATORS[key];
             params[key] = validate ? validate(raw) : raw;

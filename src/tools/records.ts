@@ -11,6 +11,40 @@ import { sanitizeError } from "../sanitize.js";
 
 const MAX_RECORD_VALUE_LENGTH = 4096;
 
+const validateText = (v: string): string =>
+  validateStringLength(v, MAX_RECORD_VALUE_LENGTH, "value");
+
+/**
+ * Single source of truth for how each record type maps to Technitium API
+ * params and how its value is validated. Drives add/update/delete so the
+ * mapping can't drift between them. The supported set is exactly the types
+ * this single-value tool can express (SOA/SRV/CAA need multi-field values).
+ */
+interface RecordFieldSpec {
+  field: string; // API param carrying the (current) value
+  newField: string; // API param carrying the new value (update only)
+  validate: (v: string) => string;
+  priorityField?: string; // extra param fed from args.priority (add only)
+}
+
+const RECORD_FIELDS: Record<string, RecordFieldSpec> = {
+  A: { field: "ipAddress", newField: "newIpAddress", validate: validateIp },
+  AAAA: { field: "ipAddress", newField: "newIpAddress", validate: validateIp },
+  CNAME: { field: "cname", newField: "newCname", validate: validateDomain },
+  NS: { field: "nameServer", newField: "newNameServer", validate: validateDomain },
+  PTR: { field: "ptrName", newField: "newPtrName", validate: validateDomain },
+  MX: { field: "exchange", newField: "newExchange", validate: validateDomain, priorityField: "preference" },
+  TXT: { field: "text", newField: "newText", validate: validateText },
+};
+
+function recordSpec(recType: string, tool: string): RecordFieldSpec {
+  const spec = RECORD_FIELDS[recType];
+  if (!spec) {
+    throw new ValidationError(`Record type ${recType} is not supported by ${tool}`);
+  }
+  return spec;
+}
+
 type BindRecord = { name: string; ttl: number; type: string; value: string };
 
 const DNS_CLASSES = new Set(["IN", "CS", "CH", "HS"]);
@@ -271,25 +305,10 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
 
         if (args.ttl !== undefined) params.ttl = String(args.ttl);
 
-        if (recType === "A" || recType === "AAAA") {
-          params.ipAddress = validateIp(value);
-        } else if (recType === "CNAME") {
-          params.cname = validateDomain(value);
-        } else if (recType === "NS") {
-          params.nameServer = validateDomain(value);
-        } else if (recType === "PTR") {
-          params.ptrName = validateDomain(value);
-        } else if (recType === "MX") {
-          params.exchange = validateDomain(value);
-          if (args.priority !== undefined) params.preference = String(args.priority);
-        } else if (recType === "TXT") {
-          params.text = value;
-        } else {
-          // SOA/SRV/CAA need multi-field values this single-value tool can't
-          // supply; reject rather than send a malformed add upstream.
-          throw new ValidationError(
-            `Record type ${recType} is not supported by dns_add_record`
-          );
+        const spec = recordSpec(recType, "dns_add_record");
+        params[spec.field] = spec.validate(value);
+        if (spec.priorityField && args.priority !== undefined) {
+          params[spec.priorityField] = String(args.priority);
         }
 
         const data = await client.callOrThrow(
@@ -348,25 +367,9 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         const value = args.value as string;
         const newValue = args.newValue as string;
 
-        if (recType === "A" || recType === "AAAA") {
-          params.ipAddress = validateIp(value);
-          params.newIpAddress = validateIp(newValue);
-        } else if (recType === "CNAME") {
-          params.cname = validateDomain(value);
-          params.newCname = validateDomain(newValue);
-        } else if (recType === "MX") {
-          params.exchange = validateDomain(value);
-          params.newExchange = validateDomain(newValue);
-        } else if (recType === "NS") {
-          params.nameServer = validateDomain(value);
-          params.newNameServer = validateDomain(newValue);
-        } else if (recType === "PTR") {
-          params.ptrName = validateDomain(value);
-          params.newPtrName = validateDomain(newValue);
-        } else if (recType === "TXT") {
-          params.text = value;
-          params.newText = newValue;
-        }
+        const spec = recordSpec(recType, "dns_update_record");
+        params[spec.field] = spec.validate(value);
+        params[spec.newField] = spec.validate(newValue);
 
         const data = await client.callOrThrow(
           "/api/zones/records/update",
@@ -407,6 +410,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
@@ -417,30 +421,9 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         // Validate the value for its record type up front so it is safe both to
         // echo in the confirmation message and to forward to the API.
         const params: Record<string, string> = { zone, domain, type: recType };
-        let value: string;
-        if (recType === "A" || recType === "AAAA") {
-          value = validateIp(rawValue);
-          params.ipAddress = value;
-        } else if (recType === "CNAME") {
-          value = validateDomain(rawValue);
-          params.cname = value;
-        } else if (recType === "MX") {
-          value = validateDomain(rawValue);
-          params.exchange = value;
-        } else if (recType === "NS") {
-          value = validateDomain(rawValue);
-          params.nameServer = value;
-        } else if (recType === "PTR") {
-          value = validateDomain(rawValue);
-          params.ptrName = value;
-        } else if (recType === "TXT") {
-          value = validateStringLength(rawValue, MAX_RECORD_VALUE_LENGTH, "value");
-          params.text = value;
-        } else {
-          throw new ValidationError(
-            `Record type ${recType} is not supported by dns_delete_record`
-          );
-        }
+        const spec = recordSpec(recType, "dns_delete_record");
+        const value = spec.validate(rawValue);
+        params[spec.field] = value;
 
         if (args.confirm !== true) {
           return JSON.stringify(

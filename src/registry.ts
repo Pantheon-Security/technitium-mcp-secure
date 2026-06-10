@@ -59,6 +59,7 @@ export function withMetadata(t: ToolEntry): ToolDefinition {
     annotations: {
       readOnlyHint: t.readonly,
       destructiveHint: t.destructive ?? false,
+      idempotentHint: t.idempotent ?? false,
       openWorldHint: t.openWorld ?? false,
       ...t.definition.annotations,
     },

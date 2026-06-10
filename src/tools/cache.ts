@@ -21,6 +21,7 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
@@ -83,6 +84,7 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       rateTier: "mutate",
       handler: async (args) => {

@@ -45,6 +45,11 @@ export interface ToolEntry {
   /** Contacts hosts beyond the configured Technitium server — sets openWorldHint. */
   openWorld?: boolean;
   /**
+   * Repeating the call with the same args leaves the same end state (set-state
+   * writes, deletes, flushes) — sets idempotentHint. Defaults to false.
+   */
+  idempotent?: boolean;
+  /**
    * Abuse rate-limit tier. Defaults: readonly tools are unlimited (global cap
    * only), destructive tools get the strict tier, other writes the mutate tier.
    * Set explicitly to override the derived default.

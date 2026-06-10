@@ -32,6 +32,14 @@ test("withMetadata derives read-only / destructive / openWorld annotations", () 
   assert.equal(ext.annotations?.openWorldHint, true);
 });
 
+test("withMetadata derives idempotentHint for set-state writes only", () => {
+  // delete is idempotent (same end state); create/add are not.
+  assert.equal(withMetadata(byName.get("dns_delete_zone")!).annotations?.idempotentHint, true);
+  assert.equal(withMetadata(byName.get("dns_set_settings")!).annotations?.idempotentHint, true);
+  assert.equal(withMetadata(byName.get("dns_create_zone")!).annotations?.idempotentHint, false);
+  assert.equal(withMetadata(byName.get("dns_add_record")!).annotations?.idempotentHint, false);
+});
+
 test("deriveRateTiers gives destructive tools the strict tier and reads no tier", () => {
   const tiers = deriveRateTiers(tools);
   assert.equal(tiers.get("dns_delete_zone"), "destructive");

@@ -92,6 +92,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       openWorld: true,
       handler: async (args) => {

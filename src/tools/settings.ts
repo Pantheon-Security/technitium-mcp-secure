@@ -17,6 +17,45 @@ const SETTING_VALIDATORS: Record<string, (v: string) => string> = {
 const DEFAULT_DISABLE_BLOCKING_MINUTES = 5;
 const MAX_DISABLE_BLOCKING_MINUTES = 60;
 
+// The settable keys live here once and feed both the input schema and the
+// handler allowlist, so the two can't drift apart.
+const SET_SETTINGS_PROPERTIES = {
+  enableBlocking: {
+    type: "boolean",
+    description: "Enable or disable domain blocking",
+  },
+  forwarders: {
+    type: "string",
+    description: "Comma-separated list of forwarder addresses (IP, hostname, or DoH URL)",
+  },
+  forwarderProtocol: {
+    type: "string",
+    enum: ["Udp", "Tcp", "Tls", "Https", "Quic"],
+    description: "Protocol for upstream forwarders",
+  },
+  dnssecValidation: {
+    type: "boolean",
+    description: "Enable or disable DNSSEC validation",
+  },
+  preferIPv6: {
+    type: "boolean",
+    description: "Prefer IPv6 for DNS resolution",
+  },
+  logQueries: {
+    type: "boolean",
+    description: "Enable or disable query logging",
+  },
+  blockListUrls: {
+    type: "string",
+    description: "Comma-separated list of block list URLs to use for domain blocking",
+  },
+  reverseProxyNetworkACL: {
+    type: "string",
+    description:
+      "Comma-separated list of IP addresses trusted as reverse proxies (for X-Real-IP header processing)",
+  },
+} as const;
+
 export function settingsTools(client: TechnitiumClient): ToolEntry[] {
   return [
     {
@@ -42,62 +81,16 @@ export function settingsTools(client: TechnitiumClient): ToolEntry[] {
           "Update DNS server settings. Pass key/value pairs for any settings to change (e.g. forwarders, blocking, recursion, cache). Use dns_get_settings first to see current values and available keys.",
         inputSchema: {
           type: "object",
-          properties: {
-            enableBlocking: {
-              type: "boolean",
-              description: "Enable or disable domain blocking",
-            },
-            forwarders: {
-              type: "string",
-              description:
-                "Comma-separated list of forwarder addresses (IP, hostname, or DoH URL)",
-            },
-            forwarderProtocol: {
-              type: "string",
-              enum: ["Udp", "Tcp", "Tls", "Https", "Quic"],
-              description: "Protocol for upstream forwarders",
-            },
-            dnssecValidation: {
-              type: "boolean",
-              description: "Enable or disable DNSSEC validation",
-            },
-            preferIPv6: {
-              type: "boolean",
-              description: "Prefer IPv6 for DNS resolution",
-            },
-            logQueries: {
-              type: "boolean",
-              description: "Enable or disable query logging",
-            },
-            blockListUrls: {
-              type: "string",
-              description:
-                "Comma-separated list of block list URLs to use for domain blocking",
-            },
-            reverseProxyNetworkACL: {
-              type: "string",
-              description:
-                "Comma-separated list of IP addresses trusted as reverse proxies (for X-Real-IP header processing)",
-            },
-          },
+          properties: SET_SETTINGS_PROPERTIES,
         },
       },
       readonly: false,
+      idempotent: true,
       handler: async (args) => {
-        // Allowlist: only pass keys explicitly defined in the schema
-        const allowed = new Set([
-          "enableBlocking",
-          "forwarders",
-          "forwarderProtocol",
-          "dnssecValidation",
-          "preferIPv6",
-          "logQueries",
-          "blockListUrls",
-          "reverseProxyNetworkACL",
-        ]);
+        // Allowlist derives from the schema keys, so it cannot drift.
         const params: Record<string, string> = {};
         for (const [key, value] of Object.entries(args)) {
-          if (allowed.has(key) && value !== undefined) {
+          if (key in SET_SETTINGS_PROPERTIES && value !== undefined) {
             const raw = String(value);
             const validate = SETTING_VALIDATORS[key];
             params[key] = validate ? validate(raw) : raw;

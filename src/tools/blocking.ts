@@ -46,6 +46,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       handler: async (args) => {
         const domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/blocked/add", {
@@ -100,6 +101,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       handler: async (args) => {
         const domain = validateDomain(args.domain as string);
         const data = await client.callOrThrow("/api/allowed/add", {
@@ -129,6 +131,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       rateTier: "mutate",
       handler: async (args) => {
@@ -160,6 +163,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       rateTier: "mutate",
       handler: async (args) => {
@@ -191,6 +195,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
@@ -228,6 +233,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
         },
       },
       readonly: false,
+      idempotent: true,
       destructive: true,
       handler: async (args) => {
         if (args.confirm !== true) {
