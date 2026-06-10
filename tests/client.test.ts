@@ -144,6 +144,46 @@ test("sends the token in the POST body, never the query string", async () => {
   assert.match(seenBody, /token=secrettoken/, "token must travel in the body");
 });
 
+test("a revoked static token fails fast with AuthError (no retry loop)", async () => {
+  let calls = 0;
+  (globalThis as { fetch: unknown }).fetch = async () => {
+    calls++;
+    return { ok: true, status: 200, json: async () => ({ status: "invalid-token" }), text: async () => "{}" };
+  };
+  // token-only config (no password) — nothing to re-authenticate with
+  const client = new TechnitiumClient({ ...baseConfig, password: undefined, token: "revoked" });
+  await assert.rejects(() => client.callOrThrow("/api/x"), /rejected the configured token/);
+  assert.equal(calls, 1, "must not retry against the same dead token");
+});
+
+test("concurrent invalid-token calls don't clobber the refreshed token", async () => {
+  // Both initial calls see invalid-token; after one re-login installs s2, the
+  // other must NOT null it and must retry with s2 (not token=null).
+  let i = 0;
+  const sentTokens: string[] = [];
+  (globalThis as { fetch: unknown }).fetch = async (url: string, init?: { body?: string }) => {
+    const body = init?.body ?? "";
+    const m = body.match(/token=([^&]*)/);
+    if (url.includes("/api/user/login")) {
+      return { ok: true, status: 200, json: async () => ({ status: "ok", response: { token: "s2" } }), text: async () => "{}" };
+    }
+    if (m) sentTokens.push(m[1]);
+    // first two data calls (tokens s1) are rejected, later calls (s2) succeed
+    const expired = i++ < 2;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => (expired ? { status: "invalid-token" } : { status: "ok", response: { ok: true } }),
+      text: async () => "{}",
+    };
+  };
+  const client = new TechnitiumClient({ ...baseConfig, token: "s1", password: "pw" });
+  const [a, b] = await Promise.all([client.callOrThrow("/api/a"), client.callOrThrow("/api/b")]);
+  assert.deepEqual(a, { ok: true });
+  assert.deepEqual(b, { ok: true });
+  assert.ok(!sentTokens.includes(""), "must never send an empty/null token on retry");
+});
+
 test("concurrent first calls trigger only one login (auth mutex)", async () => {
   const { calls } = queueFetch([
     { status: "ok", response: { token: "sess1" } },

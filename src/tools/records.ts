@@ -1,34 +1,108 @@
 import { TechnitiumClient } from "../client.js";
 import { ToolEntry } from "../types.js";
-import { validateDomain, validateRecordType, validateIp } from "../validate.js";
+import {
+  validateDomain,
+  validateRecordType,
+  validateIp,
+  validateStringLength,
+} from "../validate.js";
 import { UpstreamError, ValidationError } from "../errors.js";
+import { sanitizeError } from "../sanitize.js";
 
-/** Parse a BIND-format zone export into structured records */
-export function parseBind(
-  zone: string,
-  bindText: string
-): Array<{ name: string; ttl: number; type: string; value: string }> {
-  const records: Array<{ name: string; ttl: number; type: string; value: string }> = [];
-  const origin = zone.endsWith(".") ? zone : zone + ".";
+const MAX_RECORD_VALUE_LENGTH = 4096;
+
+type BindRecord = { name: string; ttl: number; type: string; value: string };
+
+const DNS_CLASSES = new Set(["IN", "CS", "CH", "HS"]);
+
+/**
+ * Coalesce a BIND export into logical records: strip comments, and join
+ * parenthesised multi-line records (e.g. SOA) into a single line. Returns each
+ * logical line plus whether its owner field was blank (leading whitespace),
+ * which in BIND means "same owner as the previous record".
+ */
+function coalesceBindLines(bindText: string): Array<{ text: string; ownerBlank: boolean }> {
+  const out: Array<{ text: string; ownerBlank: boolean }> = [];
+  let buffer = "";
+  let depth = 0;
+  let ownerBlank = false;
 
   for (const raw of bindText.split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith(";") || line.startsWith("$")) continue;
+    // Naive comment strip — a ';' starts a comment (does not handle ';' inside
+    // quoted TXT data, a rare case Technitium exports don't produce).
+    const noComment = raw.replace(/;.*$/, "");
+    if (depth === 0) {
+      if (!noComment.trim()) continue;
+      ownerBlank = /^\s/.test(raw);
+    }
+    buffer += (buffer ? " " : "") + noComment.trim();
+    depth += (noComment.match(/\(/g) || []).length;
+    depth -= (noComment.match(/\)/g) || []).length;
+    if (depth <= 0) {
+      const text = buffer.replace(/[()]/g, " ").replace(/\s+/g, " ").trim();
+      if (text) out.push({ text, ownerBlank });
+      buffer = "";
+      depth = 0;
+    }
+  }
+  return out;
+}
 
-    // Format: <name> <ttl> IN <type> <rdata...>
-    const parts = line.split(/\s+/);
-    if (parts.length < 5) continue;
-    const [name, ttlStr, , type, ...rdata] = parts;
-    const ttl = parseInt(ttlStr, 10);
-    if (isNaN(ttl)) continue;
+/**
+ * Parse a BIND-format zone export into structured records. Handles $TTL/$ORIGIN
+ * directives, optional ttl/class columns in either order, $TTL-inherited
+ * records (no explicit ttl), parenthesised multi-line records, and blank-owner
+ * continuation lines.
+ */
+export function parseBind(zone: string, bindText: string): BindRecord[] {
+  const records: BindRecord[] = [];
+  let origin = zone.endsWith(".") ? zone.slice(0, -1) : zone;
+  let defaultTtl: number | undefined;
+  let lastOwner: string | undefined;
 
-    // Resolve the record name to an FQDN: "@" is the zone apex; a name that
-    // already contains a dot is treated as absolute (drop any trailing dot);
-    // a bare label is relative and gets the zone appended.
-    const fqdn =
-      name === "@" ? zone : name.includes(".") ? name.replace(/\.$/, "") : `${name}.${zone}`;
+  for (const { text, ownerBlank } of coalesceBindLines(bindText)) {
+    if (text.startsWith("$")) {
+      const [directive, value] = text.split(/\s+/);
+      if (directive === "$TTL") {
+        const t = parseInt(value, 10);
+        if (!isNaN(t)) defaultTtl = t;
+      } else if (directive === "$ORIGIN" && value) {
+        origin = value.replace(/\.$/, "");
+      }
+      continue;
+    }
 
-    records.push({ name: fqdn, ttl, type, value: rdata.join(" ") });
+    const tokens = text.split(/\s+/);
+
+    // Owner: blank (continuation) reuses the previous record's owner.
+    let owner: string;
+    if (ownerBlank && lastOwner !== undefined) {
+      owner = lastOwner;
+    } else {
+      owner = tokens.shift() ?? "";
+      lastOwner = owner;
+    }
+
+    // ttl and class are both optional and may appear in either order.
+    let ttl = defaultTtl;
+    if (tokens.length && DNS_CLASSES.has(tokens[0].toUpperCase())) tokens.shift();
+    if (tokens.length && /^\d+$/.test(tokens[0])) ttl = parseInt(tokens.shift() as string, 10);
+    if (tokens.length && DNS_CLASSES.has(tokens[0].toUpperCase())) tokens.shift();
+
+    // Need a type, rdata, and a known ttl (explicit or inherited from $TTL).
+    if (tokens.length < 2 || ttl === undefined) continue;
+    const type = tokens.shift() as string;
+    const value = tokens.join(" ");
+
+    // Owner ending in "." is absolute; otherwise it is relative to the origin.
+    const name =
+      owner === "@"
+        ? origin
+        : owner.endsWith(".")
+          ? owner.slice(0, -1)
+          : `${owner}.${origin}`;
+
+    records.push({ name, ttl, type, value });
   }
 
   return records;
@@ -121,7 +195,10 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             });
             results.push({ zone: z.name, records: parseBind(z.name, bindText) });
           } catch (e) {
-            results.push({ zone: z.name, error: String(e) });
+            results.push({
+              zone: z.name,
+              error: sanitizeError(e instanceof Error ? e.message : String(e)),
+            });
           }
         }
         return JSON.stringify(
@@ -335,7 +412,35 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         const zone = validateDomain(args.zone as string);
         const domain = validateDomain(args.domain as string);
         const recType = validateRecordType(args.type as string);
-        const value = args.value as string;
+        const rawValue = args.value as string;
+
+        // Validate the value for its record type up front so it is safe both to
+        // echo in the confirmation message and to forward to the API.
+        const params: Record<string, string> = { zone, domain, type: recType };
+        let value: string;
+        if (recType === "A" || recType === "AAAA") {
+          value = validateIp(rawValue);
+          params.ipAddress = value;
+        } else if (recType === "CNAME") {
+          value = validateDomain(rawValue);
+          params.cname = value;
+        } else if (recType === "MX") {
+          value = validateDomain(rawValue);
+          params.exchange = value;
+        } else if (recType === "NS") {
+          value = validateDomain(rawValue);
+          params.nameServer = value;
+        } else if (recType === "PTR") {
+          value = validateDomain(rawValue);
+          params.ptrName = value;
+        } else if (recType === "TXT") {
+          value = validateStringLength(rawValue, MAX_RECORD_VALUE_LENGTH, "value");
+          params.text = value;
+        } else {
+          throw new ValidationError(
+            `Record type ${recType} is not supported by dns_delete_record`
+          );
+        }
 
         if (args.confirm !== true) {
           return JSON.stringify(
@@ -345,26 +450,6 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
             null,
             2
           );
-        }
-
-        const params: Record<string, string> = {
-          zone,
-          domain,
-          type: recType,
-        };
-
-        if (recType === "A" || recType === "AAAA") {
-          params.ipAddress = validateIp(value);
-        } else if (recType === "CNAME") {
-          params.cname = value;
-        } else if (recType === "MX") {
-          params.exchange = value;
-        } else if (recType === "TXT") {
-          params.text = value;
-        } else if (recType === "NS") {
-          params.nameServer = value;
-        } else if (recType === "PTR") {
-          params.ptrName = value;
         }
 
         const data = await client.callOrThrow(

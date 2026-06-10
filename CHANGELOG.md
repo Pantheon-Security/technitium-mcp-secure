@@ -4,6 +4,40 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-06-10
+
+Clears the substantive pre-existing backlog from the re-review (none blocked
+the GO verdict). All fixes carry red-proven regression gates (85 tests).
+
+### Security
+
+- Response value strings are now scrubbed of file paths, stack traces, and
+  credential URLs (previously only long hex was redacted), and the per-zone
+  export error is routed through `sanitizeError` instead of embedding a raw
+  `String(e)`.
+- `dns_delete_record` validates the value for its record type before echoing it
+  in the confirmation message or forwarding it.
+
+### Fixed
+
+- **Client auth reliability.** A revoked static token no longer triggers a
+  double round-trip ending in a confusing UpstreamError — it now fails fast
+  with an AuthError when no password is configured to re-authenticate.
+  Concurrent invalid-token handling uses compare-and-swap on the failed token
+  so a freshly acquired token can't be clobbered (no `token=null` retries).
+- **BIND parsing.** `parseBind` now keeps `$TTL`-inherited records, parses
+  parenthesised multi-line records (SOA) as one record, honours `$ORIGIN` and
+  blank-owner continuation lines, and resolves relative dotted names correctly
+  instead of mistaking them for absolute names. (Removed the dead `origin` var.)
+
+### Changed
+
+- `VERSION` is read from `package.json` at runtime (single source of truth).
+- Published `bin` is marked executable on build (`postbuild` chmod) so `npx`
+  works.
+- Extracted named constants for the rate-limit tiers; hoisted the response
+  token regex out of the per-value hot path.
+
 ## [1.3.1] - 2026-06-10
 
 Closes gaps an adversarial re-review found in the 1.3.0 remediation (verdict
@@ -90,5 +124,6 @@ HTTP client, adds a test suite and CI, and tightens the MCP tool surface.
 
 Earlier history (≤ 1.2.4) is available in the git log.
 
+[1.3.2]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.2
 [1.3.1]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.1
 [1.3.0]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.0

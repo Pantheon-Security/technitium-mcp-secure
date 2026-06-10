@@ -51,6 +51,20 @@ test("dns_delete_record maps PTR value to ptrName param", async () => {
   assert.equal(params.ptrName, "host-a.example.com");
 });
 
+test("dns_delete_record validates the value for its record type", async () => {
+  await assert.rejects(
+    () =>
+      captureParams("dns_delete_record", {
+        zone: "example.com",
+        domain: "example.com",
+        type: "CNAME",
+        value: "not a hostname; rm -rf /",
+        confirm: true,
+      }),
+    /Invalid/
+  );
+});
+
 test("dns_delete_record no longer advertises SRV/CAA it cannot delete", () => {
   const tool = recordTools({} as TechnitiumClient).find(
     (t) => t.definition.name === "dns_delete_record"

@@ -6,6 +6,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { readFileSync } from "node:fs";
 import { loadConfig } from "./config.js";
 import { TechnitiumClient } from "./client.js";
 import { getAllTools } from "./tools/index.js";
@@ -16,7 +17,17 @@ import { ValidationError } from "./errors.js";
 import { ToolDefinition } from "./types.js";
 import { withMetadata, deriveRateTiers, buildToolResult } from "./registry.js";
 
-const VERSION = "1.3.1";
+/** Single source of truth: read the version from the package manifest. */
+function readVersion(): string {
+  try {
+    const pkg = readFileSync(new URL("../package.json", import.meta.url), "utf-8");
+    return (JSON.parse(pkg).version as string) ?? "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+const VERSION = readVersion();
 
 async function main(): Promise<void> {
   const config = loadConfig();

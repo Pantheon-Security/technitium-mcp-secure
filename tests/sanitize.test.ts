@@ -69,6 +69,16 @@ test("sanitizeResponse redacts long hex inside string values", () => {
   assert.match(out.note as string, /\[REDACTED_TOKEN\]/);
 });
 
+test("sanitizeResponse strips file paths and stack traces from value strings", () => {
+  const out = sanitizeResponse({
+    error: "boom at handler (/app/src/x.js:12:5) reading /etc/technitium/token.txt",
+  }) as Record<string, unknown>;
+  const s = out.error as string;
+  assert.match(s, /\[STACK_TRACE\]/);
+  assert.match(s, /\[REDACTED_PATH\]/);
+  assert.doesNotMatch(s, /\/etc\/technitium/);
+});
+
 test("sanitizeResponse handles arrays and null", () => {
   assert.deepEqual(sanitizeResponse([{ token: "x" }, null]), [
     { token: "[REDACTED]" },

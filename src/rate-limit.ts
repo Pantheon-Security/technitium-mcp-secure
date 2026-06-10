@@ -4,6 +4,13 @@ interface RateLimitBucket {
 
 export type RateTier = "destructive" | "mutate";
 
+// Sliding window and per-tier caps (requests per window). Destructive tools are
+// throttled hardest; other writes get a looser cap; reads are global-only.
+const WINDOW_MS = 60_000;
+const GLOBAL_MAX_REQUESTS = 100;
+const DESTRUCTIVE_MAX_REQUESTS = 5;
+const MUTATE_MAX_REQUESTS = 10;
+
 export class RateLimiter {
   private buckets = new Map<string, RateLimitBucket>();
   private globalBucket: RateLimitBucket = { timestamps: [] };
@@ -19,14 +26,14 @@ export class RateLimiter {
    */
   constructor(
     toolTiers: Map<string, RateTier> = new Map(),
-    globalMaxRequests = 100,
-    globalWindowMs = 60_000
+    globalMaxRequests = GLOBAL_MAX_REQUESTS,
+    globalWindowMs = WINDOW_MS
   ) {
     this.globalMaxRequests = globalMaxRequests;
     this.globalWindowMs = globalWindowMs;
 
-    const destructiveLimits = { maxRequests: 5, windowMs: 60_000 };
-    const mutateLimits = { maxRequests: 10, windowMs: 60_000 };
+    const destructiveLimits = { maxRequests: DESTRUCTIVE_MAX_REQUESTS, windowMs: WINDOW_MS };
+    const mutateLimits = { maxRequests: MUTATE_MAX_REQUESTS, windowMs: WINDOW_MS };
 
     for (const [tool, tier] of toolTiers) {
       this.toolLimits.set(

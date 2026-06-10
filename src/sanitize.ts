@@ -5,9 +5,8 @@
 const ERROR_TOKEN_HEX_MIN = 20;
 const RESPONSE_TOKEN_HEX_MIN = 32;
 
-const SENSITIVE_PATTERNS: [RegExp, string][] = [
-  // Hex tokens (ERROR_TOKEN_HEX_MIN+ chars)
-  [new RegExp(`\\b[0-9a-f]{${ERROR_TOKEN_HEX_MIN},}\\b`, "gi"), "[REDACTED_TOKEN]"],
+// Path / stack / credential-URL patterns shared by error and value scrubbing.
+const STRUCTURAL_PATTERNS: [RegExp, string][] = [
   // URLs with credentials
   [/https?:\/\/[^:]+:[^@]+@[^\s]+/g, "[REDACTED_URL]"],
   // File paths (Unix)
@@ -17,6 +16,24 @@ const SENSITIVE_PATTERNS: [RegExp, string][] = [
   // Stack traces
   [/at\s+\w+.*\(.*:\d+:\d+\)/g, "[STACK_TRACE]"],
   [/\s+in\s+\w+.*\\.*\.cs:line\s+\d+/g, "[STACK_TRACE]"],
+];
+
+const ERROR_TOKEN_RE = new RegExp(`\\b[0-9a-f]{${ERROR_TOKEN_HEX_MIN},}\\b`, "gi");
+const RESPONSE_TOKEN_RE = new RegExp(`\\b[0-9a-f]{${RESPONSE_TOKEN_HEX_MIN},}\\b`, "gi");
+
+const SENSITIVE_PATTERNS: [RegExp, string][] = [
+  // Hex tokens (aggressive 20+ rule for error strings)
+  [ERROR_TOKEN_RE, "[REDACTED_TOKEN]"],
+  ...STRUCTURAL_PATTERNS,
+];
+
+// Applied to response *value* strings so internal paths/stacks/credential URLs
+// don't leak via embedded error fields, using the conservative 32+ hex rule to
+// avoid clobbering legitimate DNS data (e.g. DNSSEC DS digests). All patterns
+// are compiled once at module load, not per value.
+const VALUE_PATTERNS: [RegExp, string][] = [
+  ...STRUCTURAL_PATTERNS,
+  [RESPONSE_TOKEN_RE, "[REDACTED_TOKEN]"],
 ];
 
 export function sanitizeError(message: string): string {
@@ -77,11 +94,11 @@ export function sanitizeResponse(data: unknown): unknown {
 }
 
 function sanitizeString(value: string): string {
-  // Redact long hex strings that look like tokens
-  return value.replace(
-    new RegExp(`\\b[0-9a-f]{${RESPONSE_TOKEN_HEX_MIN},}\\b`, "gi"),
-    "[REDACTED_TOKEN]"
-  );
+  let out = value;
+  for (const [pattern, replacement] of VALUE_PATTERNS) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
 }
 
 export function maskUrl(url: string): string {

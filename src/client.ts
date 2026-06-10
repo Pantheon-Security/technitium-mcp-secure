@@ -10,6 +10,9 @@ export class TechnitiumClient {
   private sessionToken: string | null = null;
   private config: Config;
   private authInFlight: Promise<void> | null = null;
+  // Once the server rejects the static config token, stop reusing it so a
+  // password fallback (if any) is taken instead of looping on a dead token.
+  private staticTokenRevoked = false;
 
   constructor(config: Config) {
     this.config = config;
@@ -19,7 +22,7 @@ export class TechnitiumClient {
   }
 
   private async authenticate(): Promise<void> {
-    if (this.config.token) {
+    if (this.config.token && !this.staticTokenRevoked) {
       this.sessionToken = this.config.token;
       audit.logAuth("token_loaded", true);
       return;
@@ -54,6 +57,29 @@ export class TechnitiumClient {
 
     this.sessionToken = data.response.token as string;
     audit.logAuth("login", true);
+  }
+
+  /**
+   * Handle an invalid-token response. Returns true if a re-auth+retry should be
+   * attempted, or throws AuthError when the token is unrecoverable (no password
+   * to log in with). Uses compare-and-swap on the token that actually failed so
+   * a concurrent call that already refreshed the token isn't clobbered.
+   */
+  private prepareReauth(failedToken: string | null): void {
+    if (!this.config.password) {
+      audit.logAuth("token_rejected", false);
+      throw new AuthError(
+        "Technitium rejected the configured token (invalid or revoked); " +
+          "set TECHNITIUM_PASSWORD to enable automatic re-authentication"
+      );
+    }
+    // CAS: only invalidate if the token is still the one that failed — another
+    // concurrent call may have already logged in and installed a fresh token.
+    if (this.sessionToken === failedToken) {
+      if (failedToken === this.config.token) this.staticTokenRevoked = true;
+      this.sessionToken = null;
+      audit.logAuth("token_expired", false);
+    }
   }
 
   private async ensureAuth(): Promise<void> {
@@ -118,12 +144,12 @@ export class TechnitiumClient {
   ): Promise<TechnitiumResponse> {
     await this.ensureAuth();
 
+    const usedToken = this.sessionToken;
     let resp = await this.sendOnce(endpoint, params);
     let data = await this.readJson(resp);
 
     if (data.status === "invalid-token") {
-      this.sessionToken = null;
-      audit.logAuth("token_expired", false);
+      this.prepareReauth(usedToken);
       await this.ensureAuth();
       resp = await this.sendOnce(endpoint, params);
       data = await this.readJson(resp);
@@ -170,11 +196,11 @@ export class TechnitiumClient {
   ): Promise<string> {
     await this.ensureAuth();
 
+    const usedToken = this.sessionToken;
     let text = await this.sendRawOnce(endpoint, params);
 
     if (this.isInvalidTokenText(text)) {
-      this.sessionToken = null;
-      audit.logAuth("token_expired", false);
+      this.prepareReauth(usedToken);
       await this.ensureAuth();
       text = await this.sendRawOnce(endpoint, params);
     }
