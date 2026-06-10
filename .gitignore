@@ -6,3 +6,4 @@ dist/
 .env.*
 *.map
 *.token
+.claude-review/
