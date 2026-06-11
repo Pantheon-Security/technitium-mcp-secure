@@ -11,8 +11,34 @@ import { sanitizeError } from "../sanitize.js";
 
 const MAX_RECORD_VALUE_LENGTH = 4096;
 
+// dns_list_records bounds: cap how many zones are exported, how many records
+// are returned, and how many exports run at once (don't hammer the DNS server).
+const MAX_LIST_ZONES = 50;
+const MAX_LIST_RECORDS = 5000;
+const EXPORT_CONCURRENCY = 8;
+
 const validateText = (v: string): string =>
   validateStringLength(v, MAX_RECORD_VALUE_LENGTH, "value");
+
+/** Run an async mapper over items with a bounded number in flight; preserves order. */
+async function mapBounded<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, () => worker())
+  );
+  return results;
+}
 
 /**
  * Single source of truth for how each record type maps to Technitium API
@@ -195,29 +221,49 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         // Always attempt the requested zone itself, even if /list didn't list it.
         if (!matched.includes(zone)) matched.unshift(zone);
 
-        // Export + parse each zone into one normalized, flat record list (the
-        // single tested code path — no second API record shape to reconcile).
+        // Cap the zone fan-out so a parent matching hundreds of subzones can't
+        // trigger an unbounded number of exports.
+        const zonesTruncated = matched.length > MAX_LIST_ZONES;
+        const toExport = matched.slice(0, MAX_LIST_ZONES);
+
+        // Export + parse each zone (bounded concurrency) into one normalized,
+        // flat record list — the single tested path, order preserved.
+        type ZoneResult =
+          | { zone: string; records: BindRecord[] }
+          | { zone: string; error: string };
+        const exported = await mapBounded<string, ZoneResult>(
+          toExport,
+          EXPORT_CONCURRENCY,
+          async (z) => {
+            try {
+              const bindText = await client.callRawText("/api/zones/export", { zone: z });
+              return { zone: z, records: parseBind(z, bindText) };
+            } catch (e) {
+              return {
+                zone: z,
+                error: sanitizeError(e instanceof Error ? e.message : String(e)),
+              };
+            }
+          }
+        );
+
         const records: BindRecord[] = [];
         const zonesRead: string[] = [];
         const errors: Array<{ zone: string; error: string }> = [];
-        for (const z of matched) {
-          try {
-            const bindText = await client.callRawText("/api/zones/export", {
-              zone: z,
-            });
-            records.push(...parseBind(z, bindText));
-            zonesRead.push(z);
-          } catch (e) {
-            errors.push({
-              zone: z,
-              error: sanitizeError(e instanceof Error ? e.message : String(e)),
-            });
+        for (const r of exported) {
+          if ("error" in r) {
+            errors.push({ zone: r.zone, error: r.error });
+          } else {
+            zonesRead.push(r.zone);
+            records.push(...r.records);
           }
         }
 
-        const result = domain
+        const filtered = domain
           ? records.filter((r) => r.name === domain)
           : records;
+        const recordsTruncated = filtered.length > MAX_LIST_RECORDS;
+        const result = filtered.slice(0, MAX_LIST_RECORDS);
 
         return {
           zone,
@@ -226,6 +272,13 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
           recordCount: result.length,
           records: result,
           ...(errors.length > 0 && { errors }),
+          ...((zonesTruncated || recordsTruncated) && {
+            truncated: {
+              zones: zonesTruncated,
+              records: recordsTruncated,
+              totalZonesMatched: matched.length,
+            },
+          }),
         };
       },
     },

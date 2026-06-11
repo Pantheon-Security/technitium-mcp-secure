@@ -79,6 +79,40 @@ test("a failing zone export is captured in errors, not thrown", async () => {
   assert.ok(out.errors && out.errors.some((e) => e.zone === "broken.example.com"));
 });
 
+test("caps the zone fan-out and flags truncation", async () => {
+  // 60 subzones of example.com, each with one record.
+  const zones = ["example.com"];
+  const bind: Record<string, string> = { "example.com": "@ 300 IN A 1.1.1.1\n" };
+  for (let i = 0; i < 60; i++) {
+    const z = `z${i}.example.com`;
+    zones.push(z);
+    bind[z] = `@ 300 IN A 10.0.0.${i % 255}\n`;
+  }
+  const out = await listRecords(listClient(zones, bind), { zone: "example.com" });
+  // MAX_LIST_ZONES is 50 — no more than 50 zones read.
+  assert.ok(out.zones.length <= 50, `read ${out.zones.length} zones, expected <=50`);
+  const trunc = (out as unknown as { truncated?: { zones: boolean; totalZonesMatched: number } }).truncated;
+  assert.ok(trunc?.zones, "should flag zone truncation");
+  assert.equal(trunc?.totalZonesMatched, 61);
+});
+
+test("bounded parallel export still returns every record, order preserved", async () => {
+  const zones = ["example.com", "a.example.com", "b.example.com"];
+  const out = await listRecords(
+    listClient(zones, {
+      "example.com": "@ 300 IN A 1.1.1.1\n",
+      "a.example.com": "@ 300 IN A 2.2.2.2\n",
+      "b.example.com": "@ 300 IN A 3.3.3.3\n",
+    }),
+    { zone: "example.com" }
+  );
+  assert.equal(out.recordCount, 3);
+  assert.deepEqual(
+    out.records.map((r) => r.name),
+    ["example.com", "a.example.com", "b.example.com"]
+  );
+});
+
 test("dns_health_check is served with an outputSchema; dns_list_records is not (untrusted)", () => {
   const dash = dashboardTools({} as TechnitiumClient);
   const health = dash.find((t) => t.definition.name === "dns_health_check")!;
