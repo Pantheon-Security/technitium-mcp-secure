@@ -184,6 +184,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         if (args.confirm !== true) {
           return {
+              requiresConfirm: true,
               warning:
                 "This will remove ALL domains from the allow list. Set confirm=true to proceed.",
             };
@@ -214,6 +215,7 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         if (args.confirm !== true) {
           return {
+              requiresConfirm: true,
               warning:
                 "This will remove ALL domains from the custom block list. Set confirm=true to proceed.",
             };

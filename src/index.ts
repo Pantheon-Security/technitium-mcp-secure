@@ -101,6 +101,16 @@ async function main(): Promise<void> {
     try {
       const rawResult = await tool.handler((args || {}) as Record<string, unknown>);
 
+      // A confirm=false preview didn't perform the action, so refund its
+      // rate-limit slot — previews shouldn't exhaust the destructive budget.
+      if (
+        rawResult &&
+        typeof rawResult === "object" &&
+        (rawResult as { requiresConfirm?: unknown }).requiresConfirm === true
+      ) {
+        rateLimiter.refund(name);
+      }
+
       const { text, structuredContent } = buildToolResult(
         tool,
         rawResult,
@@ -153,6 +163,8 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     audit.logShutdown(signal);
+    // Force-exit if a graceful close hangs, so we never wedge on shutdown.
+    setTimeout(() => process.exit(1), 5000).unref();
     client.clearToken();
     await server.close();
     process.exit(0);

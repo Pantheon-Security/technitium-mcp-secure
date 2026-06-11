@@ -144,6 +144,17 @@ test("sends the token in the POST body, never the query string", async () => {
   assert.match(seenBody, /token=secrettoken/, "token must travel in the body");
 });
 
+test("a login that returns no token fails with AuthError", async () => {
+  (globalThis as { fetch: unknown }).fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ status: "ok", response: {} }),
+    text: async () => "{}",
+  });
+  const client = new TechnitiumClient({ ...baseConfig }); // password auth
+  await assert.rejects(() => client.callOrThrow("/api/x"), /no session token/);
+});
+
 test("a revoked static token fails fast with AuthError (no retry loop)", async () => {
   let calls = 0;
   (globalThis as { fetch: unknown }).fetch = async () => {

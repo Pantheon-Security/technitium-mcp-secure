@@ -96,6 +96,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
         const name = validateStringLength(args.name as string, 200, "App name");
         if (args.confirm !== true) {
           return {
+              requiresConfirm: true,
               warning: `This will uninstall the app '${name}' and remove its data. Set confirm=true to proceed.`,
             };
         }

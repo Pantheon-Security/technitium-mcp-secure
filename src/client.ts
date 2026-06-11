@@ -55,7 +55,13 @@ export class TechnitiumClient {
       throw new AuthError("Authentication failed");
     }
 
-    this.sessionToken = data.response.token as string;
+    const token = data.response.token;
+    if (typeof token !== "string" || token.length === 0) {
+      audit.logAuth("login", false, "login response had no token");
+      throw new AuthError("Authentication succeeded but returned no session token");
+    }
+
+    this.sessionToken = token;
     audit.logAuth("login", true);
   }
 

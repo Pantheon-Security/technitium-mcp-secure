@@ -77,7 +77,10 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
           pageNumber: String(Math.max(Number(args.pageNumber) || 1, 1)),
           entriesPerPage: String(
             Math.min(
-              Number(args.entriesPerPage) || DEFAULT_ENTRIES_PER_PAGE,
+              Math.max(
+                Number(args.entriesPerPage) || DEFAULT_ENTRIES_PER_PAGE,
+                1
+              ),
               MAX_ENTRIES_PER_PAGE
             )
           ),

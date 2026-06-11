@@ -20,13 +20,21 @@ export function loadConfig(): Config {
   const cleanUrl = url.replace(/\/$/, "");
   const allowHttp = process.env.TECHNITIUM_ALLOW_HTTP === "true";
 
-  if (cleanUrl.startsWith("http://") && !allowHttp) {
+  // Scheme check is case-insensitive (so HTTP:// can't slip past the guard) and
+  // rejects anything that isn't http/https (e.g. file://, ftp://).
+  const scheme = cleanUrl.match(/^([a-z][a-z0-9+.-]*):\/\//i)?.[1].toLowerCase();
+  if (scheme !== "http" && scheme !== "https") {
+    throw new Error("TECHNITIUM_URL must be an http:// or https:// URL");
+  }
+  const isHttp = scheme === "http";
+
+  if (isHttp && !allowHttp) {
     throw new Error(
       "TECHNITIUM_URL uses HTTP (insecure). Set TECHNITIUM_ALLOW_HTTP=true to override, or use HTTPS."
     );
   }
 
-  if (cleanUrl.startsWith("http://") && allowHttp) {
+  if (isHttp && allowHttp) {
     console.error(
       "[technitium-mcp] WARNING: Using HTTP - credentials transmitted in plaintext"
     );
@@ -43,9 +51,11 @@ export function loadConfig(): Config {
       // 0o077 = group+other permission bits; any set means the token file is
       // readable/writable beyond its owner, which is too loose for a secret.
       if (mode & 0o077) {
-        console.error(
-          `[technitium-mcp] WARNING: Token file ${tokenFile} has loose permissions (${mode.toString(8)}). Should be 0600.`
-        );
+        const detail = `Token file ${tokenFile} has loose permissions (${mode.toString(8)}). Should be 0600.`;
+        if (process.env.TECHNITIUM_STRICT_TOKEN_PERMS === "true") {
+          throw new Error(`${detail} (TECHNITIUM_STRICT_TOKEN_PERMS is enabled)`);
+        }
+        console.error(`[technitium-mcp] WARNING: ${detail}`);
       }
       token = readFileSync(tokenFile, "utf-8").trim();
     } catch (err) {

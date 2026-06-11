@@ -467,6 +467,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
 
         if (args.confirm !== true) {
           return {
+              requiresConfirm: true,
               warning: `This will delete the ${recType} record for '${domain}' (value: ${value}). Set confirm=true to proceed.`,
             };
         }

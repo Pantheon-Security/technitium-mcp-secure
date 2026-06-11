@@ -80,6 +80,16 @@ export class RateLimiter {
     return { allowed: true };
   }
 
+  /**
+   * Give back the most recent slot taken by check(toolName) — used when a call
+   * turned out to be a no-op (e.g. a confirm=false preview) and should not count
+   * against the budget.
+   */
+  refund(toolName: string): void {
+    this.globalBucket.timestamps.pop();
+    this.buckets.get(toolName)?.timestamps.pop();
+  }
+
   private pruneTimestamps(
     bucket: RateLimitBucket,
     now: number,

@@ -109,6 +109,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
         const zone = validateDomain(args.zone as string);
         if (args.confirm !== true) {
           return {
+              requiresConfirm: true,
               warning: `This will permanently delete zone '${zone}' and ALL its records. Set confirm=true to proceed.`,
             };
         }

@@ -26,6 +26,7 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
       handler: async (args) => {
         if (args.confirm !== true) {
           return {
+              requiresConfirm: true,
               warning:
                 "This will flush the entire DNS cache. All subsequent queries will be resolved fresh from upstream, which may temporarily increase latency. Set confirm=true to proceed.",
             };

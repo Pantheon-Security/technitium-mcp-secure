@@ -38,6 +38,14 @@ test("mutate tools get the medium per-tool cap (10)", () => {
   assert.equal(rl.check("dns_add_record").allowed, false);
 });
 
+test("refund frees a consumed destructive slot (confirm-preview path)", () => {
+  const rl = new RateLimiter(tiers([["dns_delete_zone", "destructive"]]), 1000, 60_000);
+  for (let i = 0; i < 5; i++) assert.equal(rl.check("dns_delete_zone").allowed, true);
+  assert.equal(rl.check("dns_delete_zone").allowed, false); // cap of 5 reached
+  rl.refund("dns_delete_zone");
+  assert.equal(rl.check("dns_delete_zone").allowed, true); // slot given back
+});
+
 test("tools with no tier are bounded only by the global limit", () => {
   const rl = new RateLimiter(tiers([]), 1000, 60_000);
   for (let i = 0; i < 50; i++) {
