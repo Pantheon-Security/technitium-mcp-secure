@@ -7,7 +7,7 @@
 
 ---
 
-## REMEDIATION STATUS (as of v1.3.0, 2026-06-10)
+## REMEDIATION STATUS (initial release, 2026-06-10)
 
 This is the **baseline review against v1.2.4**. The report text below is
 preserved verbatim as the historical record; most findings have since been
