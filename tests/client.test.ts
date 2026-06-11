@@ -67,7 +67,7 @@ test("callOrThrow throws on a non-ok API status", async () => {
 
 test("maps a non-ok HTTP status to an UpstreamError", async () => {
   (globalThis as { fetch: unknown }).fetch = async (url: string) => ({
-    ok: url.includes("/login") ? true : false,
+    ok: !!url.includes("/login"),
     status: url.includes("/login") ? 200 : 503,
     json: async () => ({ status: "ok", response: { token: "s" } }),
     text: async () => "<html>502 Bad Gateway</html>",

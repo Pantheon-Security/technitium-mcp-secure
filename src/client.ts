@@ -1,5 +1,5 @@
-import { Config } from "./config.js";
-import { TechnitiumResponse } from "./types.js";
+import type { Config } from "./config.js";
+import type { TechnitiumResponse } from "./types.js";
 import { audit } from "./audit.js";
 import { AuthError, UpstreamError } from "./errors.js";
 

@@ -7,7 +7,10 @@ import type { TechnitiumClient } from "../src/client.js";
 function zone(args: Record<string, unknown>) {
   let captured: Record<string, string> | undefined;
   const fake = {
-    callOrThrow: async (_e: string, params?: Record<string, string>) => ((captured = params), {}),
+    callOrThrow: async (_e: string, params?: Record<string, string>) => {
+      captured = params;
+      return {};
+    },
   } as unknown as TechnitiumClient;
   const t = zoneTools(fake).find((x) => x.definition.name === "dns_set_zone_options")!;
   return t.handler(args).then(() => captured!);
@@ -16,7 +19,10 @@ function zone(args: Record<string, unknown>) {
 function record(name: string, args: Record<string, unknown>) {
   let captured: Record<string, string> | undefined;
   const fake = {
-    callOrThrow: async (_e: string, params?: Record<string, string>) => ((captured = params), {}),
+    callOrThrow: async (_e: string, params?: Record<string, string>) => {
+      captured = params;
+      return {};
+    },
   } as unknown as TechnitiumClient;
   const t = recordTools(fake).find((x) => x.definition.name === name)!;
   return { run: () => t.handler(args).then(() => captured!), tool: t };

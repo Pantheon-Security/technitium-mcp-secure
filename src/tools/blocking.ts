@@ -1,5 +1,5 @@
-import { TechnitiumClient } from "../client.js";
-import { ToolEntry } from "../types.js";
+import type { TechnitiumClient } from "../client.js";
+import type { ToolEntry } from "../types.js";
 import { validateDomain } from "../validate.js";
 
 export function blockingTools(client: TechnitiumClient): ToolEntry[] {

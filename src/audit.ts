@@ -11,7 +11,7 @@ function sanitizeArgs(
     if (isSensitiveKey(key)) {
       sanitized[key] = "[REDACTED]";
     } else if (typeof value === "string" && value.length > MAX_AUDIT_ARG_LENGTH) {
-      sanitized[key] = value.substring(0, MAX_AUDIT_ARG_LENGTH) + "...[truncated]";
+      sanitized[key] = `${value.substring(0, MAX_AUDIT_ARG_LENGTH)}...[truncated]`;
     } else {
       sanitized[key] = value;
     }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RateLimiter, RateTier } from "../src/rate-limit.js";
+import { RateLimiter, type RateTier } from "../src/rate-limit.js";
 
 const tiers = (entries: Array<[string, RateTier]>) => new Map(entries);
 

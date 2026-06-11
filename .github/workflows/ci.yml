@@ -20,6 +20,7 @@ jobs:
         with:
           node-version: "20"
       - run: npm ci --ignore-scripts
+      - run: npm run lint
       - run: npm run build
       - run: npm test
       # Gated at 'high'. The high advisories in the SDK's HTTP-transport deps

@@ -1,5 +1,5 @@
-import { TechnitiumClient } from "../client.js";
-import { ToolEntry } from "../types.js";
+import type { TechnitiumClient } from "../client.js";
+import type { ToolEntry } from "../types.js";
 import { validateStringLength } from "../validate.js";
 
 export function appTools(client: TechnitiumClient): ToolEntry[] {

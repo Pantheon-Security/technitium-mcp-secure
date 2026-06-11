@@ -14,7 +14,7 @@ import { audit } from "./audit.js";
 import { RateLimiter } from "./rate-limit.js";
 import { sanitizeError, sanitizeResponse, maskUrl } from "./sanitize.js";
 import { ValidationError } from "./errors.js";
-import { ToolDefinition } from "./types.js";
+import type { ToolDefinition } from "./types.js";
 import { withMetadata, deriveRateTiers, buildToolResult } from "./registry.js";
 
 /** Single source of truth: read the version from the package manifest. */

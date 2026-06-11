@@ -1,5 +1,5 @@
-import { TechnitiumClient } from "../client.js";
-import { ToolEntry } from "../types.js";
+import type { TechnitiumClient } from "../client.js";
+import type { ToolEntry } from "../types.js";
 import { validatePeriod } from "../validate.js";
 
 /** Cap each "top N" list so a LastYear query can't return a huge payload. */

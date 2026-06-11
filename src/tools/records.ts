@@ -1,5 +1,5 @@
-import { TechnitiumClient } from "../client.js";
-import { ToolEntry } from "../types.js";
+import type { TechnitiumClient } from "../client.js";
+import type { ToolEntry } from "../types.js";
 import {
   validateDomain,
   validateRecordType,
@@ -99,7 +99,7 @@ export function parseBind(zone: string, bindText: string): BindRecord[] {
       const [directive, value] = text.split(/\s+/);
       if (directive === "$TTL") {
         const t = parseInt(value, 10);
-        if (!isNaN(t)) defaultTtl = t;
+        if (!Number.isNaN(t)) defaultTtl = t;
       } else if (directive === "$ORIGIN" && value) {
         origin = value.replace(/\.$/, "");
       }
@@ -196,7 +196,7 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         ).filter(
           (z) =>
             !z.internal &&
-            (z.name === zone || z.name.endsWith("." + zone))
+            (z.name === zone || z.name.endsWith(`.${zone}`))
         );
 
         if (allZones.length === 0) {

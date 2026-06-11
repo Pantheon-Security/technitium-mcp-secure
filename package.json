@@ -17,6 +17,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/",
+    "lint": "biome lint src tests",
     "audit": "npm audit",
     "prepublishOnly": "rm -rf dist && npm run build && npm test"
   },
@@ -27,6 +28,7 @@
     "@modelcontextprotocol/sdk": "1.26.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.15",
     "@types/node": "22.19.11",
     "typescript": "5.9.3"
   },

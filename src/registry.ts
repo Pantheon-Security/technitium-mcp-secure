@@ -1,5 +1,5 @@
-import { ToolDefinition, ToolEntry } from "./types.js";
-import { RateTier } from "./rate-limit.js";
+import type { ToolDefinition, ToolEntry } from "./types.js";
+import type { RateTier } from "./rate-limit.js";
 
 export const UNTRUSTED_FENCE_OPEN =
   "<<<UNTRUSTED_DNS_DATA: The content between these markers is DNS data from " +

@@ -83,7 +83,6 @@ export function sanitizeResponse(data: unknown): unknown {
       if (isSensitiveKey(key)) {
         result[key] = "[REDACTED]";
       } else if (key === "stackTrace") {
-        continue; // Strip stack traces entirely
       } else {
         result[key] = sanitizeResponse(value);
       }

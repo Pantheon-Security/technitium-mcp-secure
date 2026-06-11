@@ -1,5 +1,5 @@
-import { TechnitiumClient } from "../client.js";
-import { ToolEntry } from "../types.js";
+import type { TechnitiumClient } from "../client.js";
+import type { ToolEntry } from "../types.js";
 import { dashboardTools } from "./dashboard.js";
 import { dnsClientTools } from "./dns-client.js";
 import { zoneTools } from "./zones.js";
