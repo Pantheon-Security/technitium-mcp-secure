@@ -10,6 +10,11 @@ import { ValidationError } from "../errors.js";
 const DEFAULT_ENTRIES_PER_PAGE = 25;
 const MAX_ENTRIES_PER_PAGE = 100;
 
+// The Query Logs (Sqlite) app must be installed on the Technitium server; these
+// identify it to the /api/logs/query endpoint.
+const QUERY_LOG_APP_NAME = "Query Logs (Sqlite)";
+const QUERY_LOG_CLASS_PATH = "QueryLogsSqlite.App";
+
 export function logTools(client: TechnitiumClient): ToolEntry[] {
   return [
     {
@@ -72,8 +77,8 @@ export function logTools(client: TechnitiumClient): ToolEntry[] {
       untrusted: true,
       handler: async (args) => {
         const params: Record<string, string> = {
-          name: "Query Logs (Sqlite)",
-          classPath: "QueryLogsSqlite.App",
+          name: QUERY_LOG_APP_NAME,
+          classPath: QUERY_LOG_CLASS_PATH,
           pageNumber: String(Math.max(Number(args.pageNumber) || 1, 1)),
           entriesPerPage: String(
             Math.min(

@@ -1,6 +1,7 @@
 import type { TechnitiumClient } from "../client.js";
 import type { ToolEntry } from "../types.js";
 import { validateDomain } from "../validate.js";
+import { confirmGuard } from "../registry.js";
 
 export function blockingTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -182,13 +183,11 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
       idempotent: true,
       destructive: true,
       handler: async (args) => {
-        if (args.confirm !== true) {
-          return {
-              requiresConfirm: true,
-              warning:
-                "This will remove ALL domains from the allow list. Set confirm=true to proceed.",
-            };
-        }
+        const guard = confirmGuard(
+          args,
+          "This will remove ALL domains from the allow list. Set confirm=true to proceed."
+        );
+        if (guard) return guard;
         const data = await client.callOrThrow("/api/allowed/flush");
         return { success: true, message: "Allow list flushed", ...data };
       },
@@ -213,13 +212,11 @@ export function blockingTools(client: TechnitiumClient): ToolEntry[] {
       idempotent: true,
       destructive: true,
       handler: async (args) => {
-        if (args.confirm !== true) {
-          return {
-              requiresConfirm: true,
-              warning:
-                "This will remove ALL domains from the custom block list. Set confirm=true to proceed.",
-            };
-        }
+        const guard = confirmGuard(
+          args,
+          "This will remove ALL domains from the custom block list. Set confirm=true to proceed."
+        );
+        if (guard) return guard;
         const data = await client.callOrThrow("/api/blocked/flush");
         return { success: true, message: "Block list flushed", ...data };
       },

@@ -6,7 +6,7 @@ import {
   validateReverseProxyAcl,
   validateForwarders,
 } from "../validate.js";
-import { capList } from "../registry.js";
+import { capList, confirmGuard } from "../registry.js";
 
 /** Per-key validators for free-text zone-option values that reach the API. */
 const ZONE_OPTION_VALIDATORS: Record<string, (v: string) => string> = {
@@ -107,12 +107,11 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       destructive: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
-        if (args.confirm !== true) {
-          return {
-              requiresConfirm: true,
-              warning: `This will permanently delete zone '${zone}' and ALL its records. Set confirm=true to proceed.`,
-            };
-        }
+        const guard = confirmGuard(
+          args,
+          `This will permanently delete zone '${zone}' and ALL its records. Set confirm=true to proceed.`
+        );
+        if (guard) return guard;
         const data = await client.callOrThrow("/api/zones/delete", { zone });
         return { success: true, deleted: zone, ...data };
       },

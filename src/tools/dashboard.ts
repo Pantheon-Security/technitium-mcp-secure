@@ -38,14 +38,14 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
         const data = await client.callOrThrow("/api/dashboard/stats/get", {
           type: period,
         });
-        const cap = (arr: unknown): unknown[] =>
+        const sliceToTopN = (arr: unknown): unknown[] =>
           Array.isArray(arr) ? arr.slice(0, TOP_N) : [];
 
         return {
             stats: (data.stats as Record<string, unknown>) ?? {},
-            topClients: cap(data.topClients),
-            topDomains: cap(data.topDomains),
-            topBlockedDomains: cap(data.topBlockedDomains),
+            topClients: sliceToTopN(data.topClients),
+            topDomains: sliceToTopN(data.topDomains),
+            topBlockedDomains: sliceToTopN(data.topBlockedDomains),
           };
       },
     },

@@ -23,6 +23,19 @@ export interface ToolResult {
   structuredContent?: Record<string, unknown>;
 }
 
+/**
+ * Standard confirmation gate for destructive tools. Returns a warning object to
+ * return verbatim when `confirm` isn't true, or null to proceed. The
+ * `requiresConfirm` marker both signals the model and refunds the rate slot
+ * (see the dispatcher), so previews don't consume the destructive budget.
+ */
+export function confirmGuard(
+  args: Record<string, unknown>,
+  warning: string
+): { requiresConfirm: true; warning: string } | null {
+  return args.confirm === true ? null : { requiresConfirm: true, warning };
+}
+
 /** Default cap for flat list-tool responses. */
 export const MAX_LIST_ITEMS = 1000;
 

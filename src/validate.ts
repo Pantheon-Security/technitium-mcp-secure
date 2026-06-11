@@ -155,13 +155,14 @@ export function validateReverseProxyAcl(value: string): string {
   return splitCsv(value).map(validateCidrOrIp).join(", ");
 }
 
+// Reserved/private IPv4 ranges an SSRF guard should reject.
 const PRIVATE_IPV4_RE = [
-  /^127\./,
-  /^10\./,
-  /^192\.168\./,
-  /^169\.254\./,
-  /^172\.(?:1[6-9]|2\d|3[01])\./,
-  /^0\./,
+  /^127\./, // loopback
+  /^10\./, // RFC 1918
+  /^192\.168\./, // RFC 1918
+  /^169\.254\./, // link-local
+  /^172\.(?:1[6-9]|2\d|3[01])\./, // RFC 1918 (172.16.0.0/12)
+  /^0\./, // "this network"
 ];
 
 /**

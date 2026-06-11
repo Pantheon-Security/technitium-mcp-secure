@@ -1,7 +1,7 @@
 import type { TechnitiumClient } from "../client.js";
 import type { ToolEntry } from "../types.js";
 import { validateStringLength } from "../validate.js";
-import { capList } from "../registry.js";
+import { capList, confirmGuard } from "../registry.js";
 
 export function appTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -94,12 +94,11 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       openWorld: true,
       handler: async (args) => {
         const name = validateStringLength(args.name as string, 200, "App name");
-        if (args.confirm !== true) {
-          return {
-              requiresConfirm: true,
-              warning: `This will uninstall the app '${name}' and remove its data. Set confirm=true to proceed.`,
-            };
-        }
+        const guard = confirmGuard(
+          args,
+          `This will uninstall the app '${name}' and remove its data. Set confirm=true to proceed.`
+        );
+        if (guard) return guard;
         const data = await client.callOrThrow("/api/apps/uninstall", { name });
         return { success: true, uninstalled: name, ...data };
       },

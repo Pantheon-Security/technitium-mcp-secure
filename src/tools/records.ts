@@ -8,6 +8,7 @@ import {
 } from "../validate.js";
 import { UpstreamError, ValidationError } from "../errors.js";
 import { sanitizeError } from "../sanitize.js";
+import { confirmGuard } from "../registry.js";
 
 const MAX_RECORD_VALUE_LENGTH = 4096;
 
@@ -465,12 +466,11 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
         const value = spec.validate(rawValue);
         params[spec.field] = value;
 
-        if (args.confirm !== true) {
-          return {
-              requiresConfirm: true,
-              warning: `This will delete the ${recType} record for '${domain}' (value: ${value}). Set confirm=true to proceed.`,
-            };
-        }
+        const guard = confirmGuard(
+          args,
+          `This will delete the ${recType} record for '${domain}' (value: ${value}). Set confirm=true to proceed.`
+        );
+        if (guard) return guard;
 
         const data = await client.callOrThrow(
           "/api/zones/records/delete",

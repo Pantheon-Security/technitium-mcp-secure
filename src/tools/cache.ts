@@ -1,6 +1,7 @@
 import type { TechnitiumClient } from "../client.js";
 import type { ToolEntry } from "../types.js";
 import { validateDomain } from "../validate.js";
+import { confirmGuard } from "../registry.js";
 
 export function cacheTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -24,13 +25,11 @@ export function cacheTools(client: TechnitiumClient): ToolEntry[] {
       idempotent: true,
       destructive: true,
       handler: async (args) => {
-        if (args.confirm !== true) {
-          return {
-              requiresConfirm: true,
-              warning:
-                "This will flush the entire DNS cache. All subsequent queries will be resolved fresh from upstream, which may temporarily increase latency. Set confirm=true to proceed.",
-            };
-        }
+        const guard = confirmGuard(
+          args,
+          "This will flush the entire DNS cache. All subsequent queries will be resolved fresh from upstream, which may temporarily increase latency. Set confirm=true to proceed."
+        );
+        if (guard) return guard;
         const data = await client.callOrThrow("/api/cache/flush");
         return { success: true, message: "Cache flushed", ...data };
       },

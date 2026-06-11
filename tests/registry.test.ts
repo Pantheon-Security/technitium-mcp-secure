@@ -1,6 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { withMetadata, deriveRateTiers, capList, MAX_LIST_ITEMS } from "../src/registry.js";
+import {
+  withMetadata,
+  deriveRateTiers,
+  capList,
+  MAX_LIST_ITEMS,
+  confirmGuard,
+} from "../src/registry.js";
+
+test("confirmGuard proceeds only on confirm===true, else tags requiresConfirm", () => {
+  assert.equal(confirmGuard({ confirm: true }, "w"), null);
+  assert.deepEqual(confirmGuard({}, "warn"), { requiresConfirm: true, warning: "warn" });
+  assert.deepEqual(confirmGuard({ confirm: false }, "warn"), {
+    requiresConfirm: true,
+    warning: "warn",
+  });
+});
 
 test("capList truncates an over-limit array and flags it; passes small ones through", () => {
   const big = { zones: Array.from({ length: MAX_LIST_ITEMS + 5 }, (_, i) => i), other: 1 };

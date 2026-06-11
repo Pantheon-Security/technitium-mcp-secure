@@ -2,8 +2,8 @@
 //  - error strings are scrubbed aggressively (any 20+ char hex run is suspect),
 //  - response bodies use a higher bar (32+) so legitimate DNS data such as
 //    DNSSEC DS digests isn't clobbered. See sanitizeString below.
-const ERROR_TOKEN_HEX_MIN = 20;
-const RESPONSE_TOKEN_HEX_MIN = 32;
+const ERROR_TOKEN_HEX_MIN_CHARS = 20;
+const RESPONSE_TOKEN_HEX_MIN_CHARS = 32;
 
 // Path / stack / credential-URL patterns shared by error and value scrubbing.
 const STRUCTURAL_PATTERNS: [RegExp, string][] = [
@@ -18,8 +18,8 @@ const STRUCTURAL_PATTERNS: [RegExp, string][] = [
   [/\s+in\s+\w+.*\\.*\.cs:line\s+\d+/g, "[STACK_TRACE]"],
 ];
 
-const ERROR_TOKEN_RE = new RegExp(`\\b[0-9a-f]{${ERROR_TOKEN_HEX_MIN},}\\b`, "gi");
-const RESPONSE_TOKEN_RE = new RegExp(`\\b[0-9a-f]{${RESPONSE_TOKEN_HEX_MIN},}\\b`, "gi");
+const ERROR_TOKEN_RE = new RegExp(`\\b[0-9a-f]{${ERROR_TOKEN_HEX_MIN_CHARS},}\\b`, "gi");
+const RESPONSE_TOKEN_RE = new RegExp(`\\b[0-9a-f]{${RESPONSE_TOKEN_HEX_MIN_CHARS},}\\b`, "gi");
 
 const SENSITIVE_PATTERNS: [RegExp, string][] = [
   // Hex tokens (aggressive 20+ rule for error strings)
