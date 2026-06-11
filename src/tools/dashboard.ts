@@ -58,6 +58,30 @@ export function dashboardTools(client: TechnitiumClient): ToolEntry[] {
           type: "object",
           properties: {},
         },
+        outputSchema: {
+          type: "object",
+          properties: {
+            status: { type: "string", enum: ["ok", "degraded"] },
+            unavailable: { type: "array", items: { type: "string" } },
+            version: { type: "string" },
+            uptimestamp: { type: "string" },
+            dnsServerDomain: { type: "string" },
+            forwarders: {},
+            forwarderProtocol: { type: "string" },
+            enableBlocking: { type: "boolean" },
+            lastHour: {
+              type: "object",
+              properties: {
+                totalQueries: { type: "number" },
+                serverFailures: { type: "number" },
+                failureRate: { type: "string" },
+                blocked: { type: "number" },
+                cached: { type: "number" },
+              },
+            },
+          },
+          required: ["status", "lastHour"],
+        },
       },
       readonly: true,
       handler: async () => {

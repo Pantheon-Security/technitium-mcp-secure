@@ -148,22 +148,23 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
       definition: {
         name: "dns_list_records",
         description:
-          "List DNS records in a zone. Optionally filter by a specific domain name within the zone. " +
-          "When no domain is specified, returns all records across all zones matching the zone name " +
-          "(including subzones like app.example.com when zone=example.com). " +
-          "When domain is specified, returns records for that exact domain only.",
+          "List DNS records in a zone. Returns a flat, normalized record list " +
+          "({name, ttl, type, value}) drawn from the zone (and any subzones of " +
+          "the given name, e.g. app.example.com when zone=example.com). Pass " +
+          "domain to filter to records for that exact name only. Always returns " +
+          "{ zone, zones, recordCount, records } (plus domain/errors when relevant).",
         inputSchema: {
           type: "object",
           properties: {
             zone: {
               type: "string",
               description:
-                "Zone domain name (e.g. example.com). Can be a parent domain to list all subzones.",
+                "Zone domain name (e.g. example.com). Can be a parent domain to include subzones.",
             },
             domain: {
               type: "string",
               description:
-                "Optional specific domain to filter (e.g. www.example.com). Defaults to the zone name if omitted.",
+                "Optional exact record name to filter to (e.g. www.example.com).",
             },
           },
           required: ["zone"],
@@ -173,65 +174,59 @@ export function recordTools(client: TechnitiumClient): ToolEntry[] {
       untrusted: true,
       handler: async (args) => {
         const zone = validateDomain(args.zone as string);
+        const domain = args.domain
+          ? validateDomain(args.domain as string)
+          : undefined;
 
-        if (args.domain) {
-          // Specific domain requested — query that domain directly
-          const domain = validateDomain(args.domain as string);
-          const data = await client.callOrThrow("/api/zones/records/get", {
-            zone,
-            domain,
-          });
-          return data;
-        }
-
-        // No domain specified — find all zones that match or are subzones of the requested name
+        // Find the requested zone and any of its subzones.
         const zoneList = await client.callOrThrow("/api/zones/list");
         if (!Array.isArray(zoneList.zones)) {
           throw new UpstreamError(
             "Unexpected response from /api/zones/list: missing zones array"
           );
         }
-        const allZones = (
+        const matched = (
           zoneList.zones as Array<{ name: string; internal: boolean }>
-        ).filter(
-          (z) =>
-            !z.internal &&
-            (z.name === zone || z.name.endsWith(`.${zone}`))
-        );
+        )
+          .filter(
+            (z) => !z.internal && (z.name === zone || z.name.endsWith(`.${zone}`))
+          )
+          .map((z) => z.name);
+        // Always attempt the requested zone itself, even if /list didn't list it.
+        if (!matched.includes(zone)) matched.unshift(zone);
 
-        if (allZones.length === 0) {
-          // No matching zones — fall back to direct query (will surface API error if zone missing)
-          const data = await client.callOrThrow("/api/zones/records/get", {
-            zone,
-            domain: zone,
-          });
-          return data;
-        }
-
-        if (allZones.length === 1 && allZones[0].name === zone) {
-          // Exact single zone — export to get ALL records (apex + subdomains)
-          const bindText = await client.callRawText("/api/zones/export", {
-            zone,
-          });
-          return { zone, records: parseBind(zone, bindText) };
-        }
-
-        // Multiple zones or parent-level query — export each and combine
-        const results: unknown[] = [];
-        for (const z of allZones) {
+        // Export + parse each zone into one normalized, flat record list (the
+        // single tested code path — no second API record shape to reconcile).
+        const records: BindRecord[] = [];
+        const zonesRead: string[] = [];
+        const errors: Array<{ zone: string; error: string }> = [];
+        for (const z of matched) {
           try {
             const bindText = await client.callRawText("/api/zones/export", {
-              zone: z.name,
+              zone: z,
             });
-            results.push({ zone: z.name, records: parseBind(z.name, bindText) });
+            records.push(...parseBind(z, bindText));
+            zonesRead.push(z);
           } catch (e) {
-            results.push({
-              zone: z.name,
+            errors.push({
+              zone: z,
               error: sanitizeError(e instanceof Error ? e.message : String(e)),
             });
           }
         }
-        return { totalZones: results.length, zones: results };
+
+        const result = domain
+          ? records.filter((r) => r.name === domain)
+          : records;
+
+        return {
+          zone,
+          ...(domain && { domain }),
+          zones: zonesRead,
+          recordCount: result.length,
+          records: result,
+          ...(errors.length > 0 && { errors }),
+        };
       },
     },
     {

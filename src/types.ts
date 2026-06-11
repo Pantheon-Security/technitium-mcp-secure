@@ -22,6 +22,14 @@ export interface ToolDefinition {
     required?: string[];
     additionalProperties?: boolean;
   };
+  // Only declare for TRUSTED tools with a stable shape: an outputSchema obliges
+  // the tool to emit structuredContent, which untrusted (fenced) tools must not
+  // do — see buildToolResult.
+  outputSchema?: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
   annotations?: ToolAnnotations;
 }
 

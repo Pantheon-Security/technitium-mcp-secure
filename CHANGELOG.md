@@ -4,6 +4,37 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2026-06-11
+
+Tooling, supply-chain, and a tool-contract cleanup. 92 tests; lint clean.
+
+### Security
+
+- Took the previously-deferred high-severity transitive advisory fixes now that
+  their patches passed the 30-day rule: `hono` 4.12.18, `express-rate-limit`
+  8.5.1, `ip-address` 10.2.0 (pinned via overrides, age-checked + logged). The
+  CI `npm audit` gate is raised from `critical` to `high`. Remaining advisories
+  are all moderate and still held by the rule.
+
+### Added
+
+- Biome linter (pinned `@biomejs/biome` 2.4.15), `npm run lint`, and a CI lint
+  step. Fixed all findings (import-type, `Number.isNaN`, unused import, …).
+- `server.json` MCP-registry manifest (env vars documented) and a `mcpName` in
+  package.json for registry ownership verification.
+- `outputSchema` on `dns_health_check` (a trusted, stable-shaped tool). Untrusted
+  tools intentionally omit it — an outputSchema would oblige them to emit
+  `structuredContent`, which the prompt-injection fence withholds.
+
+### Changed
+
+- **`dns_list_records` now returns one stable shape** instead of three. Always
+  `{ zone, zones, recordCount, records }` (plus `domain`/`errors` when relevant),
+  with a flat normalized `records` array. All cases — single zone, parent/
+  subzone, and exact-domain filter — go through the one tested export+parse path
+  rather than a separate raw API record format. This is a response-shape change
+  for consumers of the old per-case shapes.
+
 ## [1.3.3] - 2026-06-10
 
 Quality refactors from the re-review backlog — behaviour-preserving, all gates
@@ -144,6 +175,7 @@ HTTP client, adds a test suite and CI, and tightens the MCP tool surface.
 
 Earlier history (≤ 1.2.4) is available in the git log.
 
+[1.3.4]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.4
 [1.3.3]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.3
 [1.3.2]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.2
 [1.3.1]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.1
