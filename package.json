@@ -1,6 +1,6 @@
 {
   "name": "@pan-sec/technitium-mcp",
-  "version": "1.4.0",
+  "version": "2026.1.0",
   "description": "MCP server for Technitium DNS Server management and diagnostics",
   "type": "module",
   "bin": {
