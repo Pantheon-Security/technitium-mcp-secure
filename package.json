@@ -38,5 +38,10 @@
     "url": "https://github.com/rosschurchill/technitium-mcp-secure/issues"
   },
   "homepage": "https://github.com/rosschurchill/technitium-mcp-secure#readme",
-  "author": "Ross Churchill"
+  "author": "Ross Churchill",
+  "overrides": {
+    "hono": "4.12.18",
+    "express-rate-limit": "8.5.1",
+    "ip-address": "10.2.0"
+  }
 }

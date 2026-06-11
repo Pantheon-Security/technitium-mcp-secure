@@ -22,8 +22,9 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run build
       - run: npm test
-      # Gated at 'critical' while the remaining high advisories (qs, hono) sit
-      # in @modelcontextprotocol/sdk's HTTP-transport deps — unreachable in this
-      # stdio-only server, and their patches are <30 days old (held by the
-      # 30-day supply-chain rule). Raise to --audit-level=high once taken (target 2026-06-15).
-      - run: npm audit --audit-level=critical
+      # Gated at 'high'. The high advisories in the SDK's HTTP-transport deps
+      # (hono, express-rate-limit, ip-address) are patched via pinned overrides
+      # once their fixes passed the 30-day rule. Remaining advisories are all
+      # moderate and still held by the rule (qs fix ~2026-06-15, hono 4.12.21
+      # fix ~2026-06-19); take them and consider --audit-level=moderate then.
+      - run: npm audit --audit-level=high
