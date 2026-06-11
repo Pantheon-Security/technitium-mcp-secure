@@ -4,6 +4,43 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-11
+
+Reliability, performance bounding, and the last of the review backlog. 108
+tests, lint clean, `npm audit` clean. This repo now uses a 14-day supply-chain
+age threshold (see CLAUDE.md); the global 30-day rule is unchanged elsewhere.
+
+### Security
+
+- Took the remaining transitive advisory fixes (`hono` 4.12.23,
+  `express-rate-limit` 8.5.2, `qs` 6.15.2) under the 14-day threshold —
+  age-checked, medusa-scanned, decision-logged. `npm audit` reports zero, and
+  the CI gate is tightened to `--audit-level=moderate`.
+- `config.ts`: the URL scheme check is case-insensitive and rejects non-http(s)
+  schemes (closes the `HTTP://` plaintext-guard bypass). New
+  `TECHNITIUM_STRICT_TOKEN_PERMS=true` fails closed on a group/other-readable
+  token file.
+
+### Fixed
+
+- `client.ts`: a login response with no/empty token now raises AuthError.
+- `logs.ts`: `entriesPerPage` is floored at 1 (negatives no longer pass).
+- `index.ts`: shutdown has a 5s force-exit deadline; a `confirm=false` preview
+  refunds its rate-limit slot so previews don't drain the destructive budget.
+
+### Performance
+
+- `dns_list_records` exports zones with bounded concurrency and caps the zone
+  fan-out (50) and record count (5000), flagging `truncated` when either trips.
+- Flat list tools (`dns_list_zones`, `dns_list_apps`, `dns_list_app_store`) cap
+  their arrays at 1000 with a `truncated` marker.
+
+### Changed
+
+- Extracted `confirmGuard` (the confirm-gate warning was duplicated across 6
+  destructive tools); named the Query-Logs app constants; added `config.ts`
+  unit coverage (the last untested module). Cosmetic naming/comment cleanups.
+
 ## [1.3.4] - 2026-06-11
 
 Tooling, supply-chain, and a tool-contract cleanup. 92 tests; lint clean.
@@ -175,6 +212,7 @@ HTTP client, adds a test suite and CI, and tightens the MCP tool surface.
 
 Earlier history (≤ 1.2.4) is available in the git log.
 
+[1.4.0]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.4.0
 [1.3.4]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.4
 [1.3.3]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.3
 [1.3.2]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.2
