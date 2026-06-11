@@ -1,16 +1,16 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.rosschurchill/technitium-mcp-secure",
+  "name": "io.github.Pantheon-Security/technitium-mcp-secure",
   "description": "MCP server for Technitium DNS Server management and diagnostics",
   "version": "1.4.0",
   "repository": {
-    "url": "https://github.com/rosschurchill/technitium-mcp-secure",
+    "url": "https://github.com/Pantheon-Security/technitium-mcp-secure",
     "source": "github"
   },
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "technitium-mcp",
+      "identifier": "@pan-sec/technitium-mcp",
       "version": "1.4.0",
       "transport": {
         "type": "stdio"

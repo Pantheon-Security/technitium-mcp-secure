@@ -1,5 +1,5 @@
 {
-  "name": "technitium-mcp",
+  "name": "@pan-sec/technitium-mcp",
   "version": "1.4.0",
   "description": "MCP server for Technitium DNS Server management and diagnostics",
   "type": "module",
@@ -8,9 +8,14 @@
   },
   "files": [
     "dist",
+    "server.json",
     "README.md",
+    "SECURITY.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "postbuild": "node -e \"require('fs').chmodSync('dist/index.js', 0o755)\"",
@@ -34,12 +39,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rosschurchill/technitium-mcp-secure.git"
+    "url": "git+https://github.com/Pantheon-Security/technitium-mcp-secure.git"
   },
   "bugs": {
-    "url": "https://github.com/rosschurchill/technitium-mcp-secure/issues"
+    "url": "https://github.com/Pantheon-Security/technitium-mcp-secure/issues"
   },
-  "homepage": "https://github.com/rosschurchill/technitium-mcp-secure#readme",
+  "homepage": "https://github.com/Pantheon-Security/technitium-mcp-secure#readme",
   "author": "Ross Churchill",
   "overrides": {
     "hono": "4.12.23",
@@ -47,5 +52,5 @@
     "ip-address": "10.2.0",
     "qs": "6.15.2"
   },
-  "mcpName": "io.github.rosschurchill/technitium-mcp-secure"
+  "mcpName": "io.github.Pantheon-Security/technitium-mcp-secure"
 }

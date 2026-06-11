@@ -212,9 +212,9 @@ HTTP client, adds a test suite and CI, and tightens the MCP tool surface.
 
 Earlier history (≤ 1.2.4) is available in the git log.
 
-[1.4.0]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.4.0
-[1.3.4]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.4
-[1.3.3]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.3
-[1.3.2]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.2
-[1.3.1]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.1
-[1.3.0]: https://github.com/rosschurchill/technitium-mcp-secure/releases/tag/v1.3.0
+[1.4.0]: https://github.com/Pantheon-Security/technitium-mcp-secure/releases/tag/v1.4.0
+[1.3.4]: https://github.com/Pantheon-Security/technitium-mcp-secure/releases/tag/v1.3.4
+[1.3.3]: https://github.com/Pantheon-Security/technitium-mcp-secure/releases/tag/v1.3.3
+[1.3.2]: https://github.com/Pantheon-Security/technitium-mcp-secure/releases/tag/v1.3.2
+[1.3.1]: https://github.com/Pantheon-Security/technitium-mcp-secure/releases/tag/v1.3.1
+[1.3.0]: https://github.com/Pantheon-Security/technitium-mcp-secure/releases/tag/v1.3.0

@@ -23,7 +23,7 @@ Built for use with [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 
 ```bash
 # Clone and build
-git clone https://github.com/rosschurchill/technitium-mcp-secure.git
+git clone https://github.com/Pantheon-Security/technitium-mcp-secure.git
 cd technitium-mcp-secure
 npm install
 npm run build
