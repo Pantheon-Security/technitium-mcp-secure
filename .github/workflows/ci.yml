@@ -23,9 +23,9 @@ jobs:
       - run: npm run lint
       - run: npm run build
       - run: npm test
-      # Gated at 'high'. The high advisories in the SDK's HTTP-transport deps
-      # (hono, express-rate-limit, ip-address) are patched via pinned overrides
-      # once their fixes passed the 30-day rule. Remaining advisories are all
-      # moderate and still held by the rule (qs fix ~2026-06-15, hono 4.12.21
-      # fix ~2026-06-19); take them and consider --audit-level=moderate then.
-      - run: npm audit --audit-level=high
+      # Gated at 'moderate'. All known advisories in the SDK's HTTP-transport
+      # deps are patched via pinned overrides (hono, express-rate-limit,
+      # ip-address, qs) — npm audit reports zero. This project uses a 14-day
+      # age threshold (see CLAUDE.md), which let the remaining moderate fixes
+      # be taken once their patches cleared 14 days.
+      - run: npm audit --audit-level=moderate

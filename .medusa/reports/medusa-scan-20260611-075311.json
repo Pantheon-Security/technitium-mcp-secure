@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-06-11T07:53:11.976371",
+  "medusa_version": "2026.5.8",
+  "scanner": {
+    "name": "MEDUSA",
+    "version": "2026.5.8",
+    "analyzers": 78,
+    "rules": "9,600+",
+    "url": "https://medusa-security.dev"
+  },
+  "scan_summary": {
+    "total_issues": 0,
+    "files_scanned": 2,
+    "lines_scanned": 779,
+    "security_score": 100.0,
+    "risk_level": "EXCELLENT",
+    "false_positives_filtered": 7,
+    "missing_linters": []
+  },
+  "severity_breakdown": {
+    "CRITICAL": 0,
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "UNDEFINED": 0
+  },
+  "findings": [],
+  "aggregations": {
+    "by_severity": {},
+    "by_file": {},
+    "by_scanner": {}
+  },
+  "fp_stats": {
+    "total_findings": 7,
+    "likely_fps": 7,
+    "retained": 0,
+    "fp_rate": 100.0
+  },
+  "ai_safe_mode": true
+}
