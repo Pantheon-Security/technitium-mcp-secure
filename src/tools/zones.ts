@@ -6,6 +6,7 @@ import {
   validateReverseProxyAcl,
   validateForwarders,
 } from "../validate.js";
+import { capList } from "../registry.js";
 
 /** Per-key validators for free-text zone-option values that reach the API. */
 const ZONE_OPTION_VALIDATORS: Record<string, (v: string) => string> = {
@@ -43,7 +44,7 @@ export function zoneTools(client: TechnitiumClient): ToolEntry[] {
       readonly: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/zones/list");
-        return data;
+        return capList(data, "zones");
       },
     },
     {

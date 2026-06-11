@@ -1,6 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { withMetadata, deriveRateTiers } from "../src/registry.js";
+import { withMetadata, deriveRateTiers, capList, MAX_LIST_ITEMS } from "../src/registry.js";
+
+test("capList truncates an over-limit array and flags it; passes small ones through", () => {
+  const big = { zones: Array.from({ length: MAX_LIST_ITEMS + 5 }, (_, i) => i), other: 1 };
+  const capped = capList(big, "zones") as {
+    zones: number[];
+    other: number;
+    truncated?: { field: string; returned: number; total: number };
+  };
+  assert.equal(capped.zones.length, MAX_LIST_ITEMS);
+  assert.equal(capped.other, 1, "other fields preserved");
+  assert.equal(capped.truncated?.total, MAX_LIST_ITEMS + 5);
+
+  const small = { zones: [1, 2, 3] };
+  assert.equal(capList(small, "zones"), small, "under-limit returned unchanged");
+  assert.equal(capList({ apps: "notarray" }, "apps").truncated, undefined);
+});
 import { getAllTools } from "../src/tools/index.js";
 import type { TechnitiumClient } from "../src/client.js";
 import type { ToolEntry } from "../src/types.js";

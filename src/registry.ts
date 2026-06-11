@@ -23,6 +23,30 @@ export interface ToolResult {
   structuredContent?: Record<string, unknown>;
 }
 
+/** Default cap for flat list-tool responses. */
+export const MAX_LIST_ITEMS = 1000;
+
+/**
+ * Cap a named array field in an API response so a flat list tool can't return
+ * an unbounded payload. When capped, adds a `truncated` marker; otherwise the
+ * response is returned unchanged. A no-op if the field is absent or not an array.
+ */
+export function capList(
+  data: Record<string, unknown>,
+  field: string,
+  max = MAX_LIST_ITEMS
+): Record<string, unknown> {
+  const arr = data[field];
+  if (Array.isArray(arr) && arr.length > max) {
+    return {
+      ...data,
+      [field]: arr.slice(0, max),
+      truncated: { field, returned: max, total: arr.length },
+    };
+  }
+  return data;
+}
+
 /**
  * Build the MCP result from a tool handler's return value:
  *  - a raw string payload (e.g. a BIND export) is fenced as-is for untrusted

@@ -1,6 +1,7 @@
 import type { TechnitiumClient } from "../client.js";
 import type { ToolEntry } from "../types.js";
 import { validateStringLength } from "../validate.js";
+import { capList } from "../registry.js";
 
 export function appTools(client: TechnitiumClient): ToolEntry[] {
   return [
@@ -17,7 +18,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       readonly: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/apps/list");
-        return data;
+        return capList(data, "apps");
       },
     },
     {
@@ -35,7 +36,7 @@ export function appTools(client: TechnitiumClient): ToolEntry[] {
       untrusted: true,
       handler: async () => {
         const data = await client.callOrThrow("/api/apps/listStoreApps");
-        return data;
+        return capList(data, "storeApps");
       },
     },
     {
