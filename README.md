@@ -46,8 +46,8 @@ All configuration is via environment variables:
 | `TECHNITIUM_TOKEN_FILE` | One of token/password | Path to file containing token (must be mode 0600) |
 | `TECHNITIUM_PASSWORD` | One of token/password | Admin password (token is preferred) |
 | `TECHNITIUM_USER` | No | Username (default: `admin`) |
-| `TECHNITIUM_READONLY` | No | Set `true` to hide all write tools |
-| `TECHNITIUM_ALLOW_HTTP` | No | Set `true` to allow insecure HTTP connections |
+| `TECHNITIUM_READONLY` | No | Set `true` or `1` to hide all write tools |
+| `TECHNITIUM_ALLOW_HTTP` | No | Set `true` or `1` to allow insecure HTTP connections |
 | `TECHNITIUM_SESSION_USER` | Session mode | Low-privilege Technitium user (see [Per-session tokens](#per-session-tokens-read-tier)) |
 | `TECHNITIUM_SESSION_PASS` | Session mode | Password of that user |
 
@@ -59,8 +59,16 @@ Sensitive environment variables are cleared from `process.env` after being read.
 
 Session mode removes the long-lived admin credential. The server logs in as a
 dedicated low-privilege user when it starts, uses that session's own token for
-every call, and logs out when it stops (SIGINT, SIGTERM or stdin closing).
-Each server process gets a fresh token. Nothing is reused across sessions.
+every call, and logs out when it stops (SIGINT, SIGTERM, SIGHUP, stdin closing,
+a crash, or a failed startup after login). Each server process gets a fresh
+token, and a token is never shared between processes or written to disk.
+
+**The password stays in memory.** The server keeps the session user's password
+in process memory for as long as it runs. It uses it to log in again when
+Technitium expires the session token, so a long-running server keeps working.
+The password is removed from the environment after start, never written to
+disk and never logged. It is still readable by anyone who can read the process
+memory. This is why the session user must be low-privilege.
 
 Set both `TECHNITIUM_SESSION_USER` and `TECHNITIUM_SESSION_PASS`. Rules:
 
@@ -69,8 +77,8 @@ Set both `TECHNITIUM_SESSION_USER` and `TECHNITIUM_SESSION_PASS`. Rules:
   `TECHNITIUM_PASSWORD`. Startup fails if both are present.
 - A rejected login at startup stops the server. Nothing runs without a session.
 - After logout the client cannot log in again.
-- `TECHNITIUM_READONLY` works as before. Session mode does not hide tools; the
-  user's Technitium permissions are what limit it.
+- Session mode always hides the write tools. `TECHNITIUM_READONLY` cannot turn
+  this off. The user's Technitium permissions still apply on top.
 
 ### Create the read-only Technitium user
 

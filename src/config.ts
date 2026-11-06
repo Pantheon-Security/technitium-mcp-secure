@@ -14,6 +14,19 @@ export interface Config {
   sessionMode?: boolean;
 }
 
+/**
+ * Read a boolean env flag. true/1 on, false/0/empty/unset off, case-insensitive.
+ * Any other value throws: a typo must not silently turn a safety flag off.
+ */
+function envFlag(name: string): boolean {
+  const raw = process.env[name];
+  if (raw === undefined) return false;
+  const v = raw.trim().toLowerCase();
+  if (v === "" || v === "false" || v === "0") return false;
+  if (v === "true" || v === "1") return true;
+  throw new Error(`${name} must be one of: true, 1, false, 0`);
+}
+
 export function loadConfig(): Config {
   const url = process.env.TECHNITIUM_URL;
   if (!url) {
@@ -23,7 +36,7 @@ export function loadConfig(): Config {
   }
 
   const cleanUrl = url.replace(/\/$/, "");
-  const allowHttp = process.env.TECHNITIUM_ALLOW_HTTP === "true";
+  const allowHttp = envFlag("TECHNITIUM_ALLOW_HTTP");
 
   // Scheme check is case-insensitive (so HTTP:// can't slip past the guard) and
   // rejects anything that isn't http/https (e.g. file://, ftp://).
@@ -66,7 +79,9 @@ export function loadConfig(): Config {
           "TECHNITIUM_TOKEN, TECHNITIUM_TOKEN_FILE or TECHNITIUM_PASSWORD"
       );
     }
-    const sessionReadonly = process.env.TECHNITIUM_READONLY === "true";
+    // Session mode is the read tier: write tools are always hidden, and
+    // TECHNITIUM_READONLY cannot turn that off. Still parsed, so a typo fails.
+    envFlag("TECHNITIUM_READONLY");
     delete process.env.TECHNITIUM_SESSION_USER;
     delete process.env.TECHNITIUM_SESSION_PASS;
     return {
@@ -74,7 +89,7 @@ export function loadConfig(): Config {
       user: sessionUser,
       token: undefined,
       password: sessionPass,
-      readonly: sessionReadonly,
+      readonly: true,
       allowHttp,
       sessionMode: true,
     };
@@ -92,7 +107,7 @@ export function loadConfig(): Config {
       // readable/writable beyond its owner, which is too loose for a secret.
       if (mode & 0o077) {
         const detail = `Token file ${tokenFile} has loose permissions (${mode.toString(8)}). Should be 0600.`;
-        if (process.env.TECHNITIUM_STRICT_TOKEN_PERMS === "true") {
+        if (envFlag("TECHNITIUM_STRICT_TOKEN_PERMS")) {
           throw new Error(`${detail} (TECHNITIUM_STRICT_TOKEN_PERMS is enabled)`);
         }
         console.error(`[technitium-mcp] WARNING: ${detail}`);
@@ -105,7 +120,7 @@ export function loadConfig(): Config {
 
   const password = process.env.TECHNITIUM_PASSWORD;
   const user = process.env.TECHNITIUM_USER || "admin";
-  const readonly = process.env.TECHNITIUM_READONLY === "true";
+  const readonly = envFlag("TECHNITIUM_READONLY");
 
   if (!token && !password) {
     throw new Error(

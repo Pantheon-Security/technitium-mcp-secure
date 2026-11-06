@@ -12,6 +12,19 @@ All notable changes to this project are documented here. The format is based on
   fresh token per server process for a low-privilege user, revoked by logout at
   shutdown. Fails closed on partial config; exclusive with static credentials.
 
+### Changed
+
+- Session mode always hides write tools; `TECHNITIUM_READONLY` cannot disable it.
+- Boolean env flags (`READONLY`, `ALLOW_HTTP`, `STRICT_TOKEN_PERMS`) accept
+  `true`/`1`/`false`/`0` case-insensitively; any other value is an error.
+
+### Fixed
+
+- Session token is now revoked on crashes, SIGHUP and startup failure after
+  login (handlers install before login).
+- A login that completes after logout is revoked instead of kept.
+- Audit lines scrub the password and live tokens, and sanitize free text.
+
 ## [2026.1.0] - 2026-06-11
 
 Initial public release. A security-hardened MCP server for the Technitium DNS

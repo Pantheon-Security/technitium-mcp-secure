@@ -92,16 +92,53 @@ test("session mode: loads, holds no static token, clears env", () => {
   );
 });
 
-test("session mode: TECHNITIUM_READONLY behaves as before", () => {
-  const base = { ...URL_ENV };
+test("session mode: readonly is always forced on", () => {
   const creds = () => ({
     TECHNITIUM_SESSION_USER: rnd("u"),
     TECHNITIUM_SESSION_PASS: rnd("p"),
   });
-  withEnv({ ...base, ...creds(), TECHNITIUM_READONLY: "true" }, () =>
-    assert.equal(loadConfig().readonly, true)
+  for (const v of [undefined, "true", "1", "True", "false", "0", ""]) {
+    const env: Record<string, string> = { ...URL_ENV, ...creds() };
+    if (v !== undefined) env.TECHNITIUM_READONLY = v;
+    withEnv(env, () => assert.equal(loadConfig().readonly, true, `READONLY=${v}`));
+  }
+  // A typo is an error, never a silent "off".
+  withEnv({ ...URL_ENV, ...creds(), TECHNITIUM_READONLY: "yes" }, () =>
+    assert.throws(() => loadConfig(), /TECHNITIUM_READONLY must be/)
   );
-  withEnv({ ...base, ...creds() }, () => assert.equal(loadConfig().readonly, false));
+});
+
+test("readonly flag accepts true/1/True case-insensitively outside session mode", () => {
+  for (const v of ["true", "1", "True", "TRUE", " true "]) {
+    withEnv({ ...URL_ENV, TECHNITIUM_TOKEN: rnd("t"), TECHNITIUM_READONLY: v }, () =>
+      assert.equal(loadConfig().readonly, true, v)
+    );
+  }
+  for (const v of ["false", "0", "False", ""]) {
+    withEnv({ ...URL_ENV, TECHNITIUM_TOKEN: rnd("t"), TECHNITIUM_READONLY: v }, () =>
+      assert.equal(loadConfig().readonly, false, v)
+    );
+  }
+  withEnv({ ...URL_ENV, TECHNITIUM_TOKEN: rnd("t"), TECHNITIUM_READONLY: "yes" }, () =>
+    assert.throws(() => loadConfig(), /TECHNITIUM_READONLY must be/)
+  );
+});
+
+test("allow-http flag accepts true/1/True and rejects garbage", () => {
+  const plain = ["http", "://dns.local"].join("");
+  for (const v of ["true", "1", "True"]) {
+    withEnv(
+      { TECHNITIUM_URL: plain, TECHNITIUM_TOKEN: rnd("t"), TECHNITIUM_ALLOW_HTTP: v },
+      () => assert.equal(loadConfig().allowHttp, true, v)
+    );
+  }
+  withEnv({ TECHNITIUM_URL: plain, TECHNITIUM_TOKEN: rnd("t") }, () =>
+    assert.throws(() => loadConfig(), /HTTP/)
+  );
+  withEnv(
+    { TECHNITIUM_URL: plain, TECHNITIUM_TOKEN: rnd("t"), TECHNITIUM_ALLOW_HTTP: "yes" },
+    () => assert.throws(() => loadConfig(), /TECHNITIUM_ALLOW_HTTP must be/)
+  );
 });
 
 test("session mode: error messages never contain the supplied values", () => {
@@ -310,4 +347,71 @@ test("neither the password nor any token is written to stderr", async () => {
   assert.ok(out.length > 0, "audit lines were captured");
   assert.ok(!out.includes(cfg.password as string), "password leaked to stderr");
   for (const t of srv.minted) assert.ok(!out.includes(t), "token leaked to stderr");
+});
+
+// ------------------------------------------------- race + audit scrubbing ---
+
+test("a login that finishes after logout is revoked, never kept", async () => {
+  const minted: string[] = [];
+  const revoked: string[] = [];
+  let releaseLogin!: () => void;
+  const gate = new Promise<void>((r) => (releaseLogin = r));
+  const json = (body: unknown) => ({
+    ok: true,
+    status: 200,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  });
+  (globalThis as { fetch: unknown }).fetch = async (url: string, init?: { body?: string }) => {
+    const form = new URLSearchParams(init?.body ?? "");
+    if (String(url).endsWith("/api/user/login")) {
+      await gate; // login stays on the wire until released
+      const token = rnd("sess");
+      minted.push(token);
+      return json({ status: "ok", response: { token } });
+    }
+    if (String(url).endsWith("/api/user/logout")) {
+      revoked.push(form.get("token") ?? "");
+      return json({ status: "ok" });
+    }
+    return json({ status: "ok", response: {} });
+  };
+  const client = new TechnitiumClient(sessionConfig());
+  const loginOutcome = client.startSession().then(
+    () => "resolved",
+    (e: Error) => e.message
+  );
+  const loggingOut = client.logout(); // runs while the login is in flight
+  releaseLogin();
+  await loggingOut;
+  assert.equal(await loginOutcome, "Session closed");
+  assert.equal(minted.length, 1);
+  assert.deepEqual(revoked, minted, "the late token was revoked exactly once");
+  await assert.rejects(() => client.callOrThrow("/api/zones/list"), /Session closed/);
+  assert.equal(minted.length, 1, "no further login after close");
+});
+
+test("audit lines never contain the password, even if a server echoes it", async () => {
+  const cfg = sessionConfig();
+  const echoed = `bad login for pass=${cfg.password}`;
+  (globalThis as { fetch: unknown }).fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ status: "error", errorMessage: echoed }),
+    text: async () => "",
+  });
+  const written: string[] = [];
+  const realWrite = process.stderr.write.bind(process.stderr);
+  (process.stderr as { write: unknown }).write = (c: unknown) => {
+    written.push(String(c));
+    return true;
+  };
+  try {
+    await assert.rejects(() => new TechnitiumClient(cfg).startSession(), /Authentication failed/);
+  } finally {
+    (process.stderr as { write: unknown }).write = realWrite;
+  }
+  const out = written.join("");
+  assert.ok(out.includes("bad login"), "the event was logged");
+  assert.ok(!out.includes(cfg.password as string), "password leaked to audit");
 });

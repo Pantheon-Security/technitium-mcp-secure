@@ -24,6 +24,9 @@ export class TechnitiumClient {
     if (config.token) {
       this.sessionToken = config.token;
     }
+    // Keep the credentials out of every audit line, whatever a server echoes.
+    audit.addSecret(config.password);
+    audit.addSecret(config.token);
   }
 
   private async authenticate(): Promise<void> {
@@ -64,6 +67,15 @@ export class TechnitiumClient {
     if (typeof token !== "string" || token.length === 0) {
       audit.logAuth("login", false, "login response had no token");
       throw new AuthError("Authentication succeeded but returned no session token");
+    }
+
+    audit.addSecret(token);
+
+    // logout() may have run while this login was on the wire. It saw no token
+    // and revoked nothing, so this fresh token must be revoked here, not kept.
+    if (this.closed) {
+      await this.revoke(token);
+      throw new AuthError("Session closed");
     }
 
     this.sessionToken = token;
@@ -273,7 +285,15 @@ export class TechnitiumClient {
     this.sessionToken = null;
     if (!this.config.sessionMode) return;
     this.closed = true;
-    if (!token) return;
+    // A login already on the wire revokes its own token (see authenticate);
+    // wait for it so the process does not exit before that revoke is sent.
+    const pending = this.authInFlight;
+    if (pending) await pending.catch(() => undefined);
+    if (token) await this.revoke(token);
+  }
+
+  /** Best effort, never throws: tell the server to end this token's session. */
+  private async revoke(token: string): Promise<void> {
     try {
       const resp = await this.fetchWithTimeout(
         `${this.config.url}/api/user/logout`,
