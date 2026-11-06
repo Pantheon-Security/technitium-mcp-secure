@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions use CalVer
 (`YYYY.FEATURE.PATCH`).
 
+## [Unreleased]
+
+### Added
+
+- Per-session mode (`TECHNITIUM_SESSION_USER` / `TECHNITIUM_SESSION_PASS`): a
+  fresh token per server process for a low-privilege user, revoked by logout at
+  shutdown. Fails closed on partial config; exclusive with static credentials.
+
 ## [2026.1.0] - 2026-06-11
 
 Initial public release. A security-hardened MCP server for the Technitium DNS

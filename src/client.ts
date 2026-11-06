@@ -5,6 +5,8 @@ import { AuthError, UpstreamError } from "./errors.js";
 
 /** Abort any request to Technitium that hangs longer than this. */
 const REQUEST_TIMEOUT_MS = 15_000;
+/** Logout runs during shutdown, so it gets a shorter budget. */
+const LOGOUT_TIMEOUT_MS = 3_000;
 
 export class TechnitiumClient {
   private sessionToken: string | null = null;
@@ -13,6 +15,9 @@ export class TechnitiumClient {
   // Once the server rejects the static config token, stop reusing it so a
   // password fallback (if any) is taken instead of looping on a dead token.
   private staticTokenRevoked = false;
+  // Set once the session has been logged out; no further login is allowed, so
+  // a late in-flight call cannot mint a token that nothing will revoke.
+  private closed = false;
 
   constructor(config: Config) {
     this.config = config;
@@ -89,6 +94,7 @@ export class TechnitiumClient {
   }
 
   private async ensureAuth(): Promise<void> {
+    if (this.closed) throw new AuthError("Session closed");
     if (this.sessionToken) return;
 
     // Mutex: if auth is already in-flight, wait for it
@@ -106,18 +112,19 @@ export class TechnitiumClient {
   /** fetch() with a hard timeout and upstream errors normalised. */
   private async fetchWithTimeout(
     url: string,
-    init: RequestInit
+    init: RequestInit,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
   ): Promise<Response> {
     try {
       return await fetch(url, {
         ...init,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
       const e = err as Error;
       if (e.name === "TimeoutError" || e.name === "AbortError") {
         throw new UpstreamError(
-          `Request to Technitium timed out after ${REQUEST_TIMEOUT_MS}ms`
+          `Request to Technitium timed out after ${timeoutMs}ms`
         );
       }
       throw new UpstreamError(`Cannot reach Technitium: ${e.message}`);
@@ -245,6 +252,46 @@ export class TechnitiumClient {
       return JSON.parse(text) as TechnitiumResponse;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Per-session mode: log in now so a bad credential fails at startup, not on
+   * the first tool call. No-op outside session mode.
+   */
+  async startSession(): Promise<void> {
+    if (!this.config.sessionMode) return;
+    await this.ensureAuth();
+  }
+
+  /**
+   * Per-session mode: invalidate this session's token on the server and forget
+   * it. Best effort (never throws); the client cannot log in again afterwards.
+   */
+  async logout(): Promise<void> {
+    const token = this.sessionToken;
+    this.sessionToken = null;
+    if (!this.config.sessionMode) return;
+    this.closed = true;
+    if (!token) return;
+    try {
+      const resp = await this.fetchWithTimeout(
+        `${this.config.url}/api/user/logout`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ token }).toString(),
+        },
+        LOGOUT_TIMEOUT_MS
+      );
+      let ok = resp.ok;
+      if (ok) {
+        const data = (await resp.json().catch(() => null)) as TechnitiumResponse | null;
+        ok = data?.status === "ok";
+      }
+      audit.logAuth("logout", ok, ok ? undefined : "server did not confirm logout");
+    } catch {
+      audit.logAuth("logout", false, "logout request failed");
     }
   }
 

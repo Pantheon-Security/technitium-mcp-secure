@@ -32,6 +32,9 @@ const VERSION = readVersion();
 async function main(): Promise<void> {
   const config = loadConfig();
   const client = new TechnitiumClient(config);
+  // Per-session mode: get this session's own token now (fails closed on a bad
+  // credential). Plain static-credential mode is unchanged.
+  await client.startSession();
   const allTools = getAllTools(client);
 
   // Filter out write tools in readonly mode
@@ -165,6 +168,8 @@ async function main(): Promise<void> {
     audit.logShutdown(signal);
     // Force-exit if a graceful close hangs, so we never wedge on shutdown.
     setTimeout(() => process.exit(1), 5000).unref();
+    // Per-session mode revokes the token server-side; otherwise just forgets it.
+    await client.logout();
     client.clearToken();
     await server.close();
     process.exit(0);
@@ -172,6 +177,9 @@ async function main(): Promise<void> {
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // The gateway ends a session by closing our stdin; revoke the token then too.
+  process.stdin.on("end", () => shutdown("stdin_end"));
+  process.stdin.on("close", () => shutdown("stdin_close"));
 
   // Log crashes through the audit channel rather than dropping the transport
   // silently; sanitize first so a stack/path never reaches stderr in the clear.

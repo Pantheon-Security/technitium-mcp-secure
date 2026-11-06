@@ -7,6 +7,11 @@ export interface Config {
   password?: string;
   readonly: boolean;
   allowHttp: boolean;
+  /**
+   * Per-session mode: log in as a dedicated low-privilege user at startup and
+   * log out at shutdown. Never holds a static token.
+   */
+  sessionMode?: boolean;
 }
 
 export function loadConfig(): Config {
@@ -38,6 +43,41 @@ export function loadConfig(): Config {
     console.error(
       "[technitium-mcp] WARNING: Using HTTP - credentials transmitted in plaintext"
     );
+  }
+
+  // Per-session mode (TECHNITIUM_SESSION_USER + TECHNITIUM_SESSION_PASS).
+  // Exclusive with the static credentials, so an admin token or password can
+  // never be present alongside it. Fails closed on any partial configuration.
+  const sessionUser = process.env.TECHNITIUM_SESSION_USER;
+  const sessionPass = process.env.TECHNITIUM_SESSION_PASS;
+  if (sessionUser !== undefined || sessionPass !== undefined) {
+    if (!sessionUser || !sessionPass) {
+      throw new Error(
+        "Session mode needs both TECHNITIUM_SESSION_USER and TECHNITIUM_SESSION_PASS"
+      );
+    }
+    if (
+      process.env.TECHNITIUM_TOKEN ||
+      process.env.TECHNITIUM_TOKEN_FILE ||
+      process.env.TECHNITIUM_PASSWORD
+    ) {
+      throw new Error(
+        "Session mode (TECHNITIUM_SESSION_USER/PASS) cannot be combined with " +
+          "TECHNITIUM_TOKEN, TECHNITIUM_TOKEN_FILE or TECHNITIUM_PASSWORD"
+      );
+    }
+    const sessionReadonly = process.env.TECHNITIUM_READONLY === "true";
+    delete process.env.TECHNITIUM_SESSION_USER;
+    delete process.env.TECHNITIUM_SESSION_PASS;
+    return {
+      url: cleanUrl,
+      user: sessionUser,
+      token: undefined,
+      password: sessionPass,
+      readonly: sessionReadonly,
+      allowHttp,
+      sessionMode: true,
+    };
   }
 
   // Token priority: env token > token file > password

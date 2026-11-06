@@ -48,10 +48,51 @@ All configuration is via environment variables:
 | `TECHNITIUM_USER` | No | Username (default: `admin`) |
 | `TECHNITIUM_READONLY` | No | Set `true` to hide all write tools |
 | `TECHNITIUM_ALLOW_HTTP` | No | Set `true` to allow insecure HTTP connections |
+| `TECHNITIUM_SESSION_USER` | Session mode | Low-privilege Technitium user (see [Per-session tokens](#per-session-tokens-read-tier)) |
+| `TECHNITIUM_SESSION_PASS` | Session mode | Password of that user |
 
 Authentication priority: `TECHNITIUM_TOKEN` > `TECHNITIUM_TOKEN_FILE` > `TECHNITIUM_PASSWORD`
 
 Sensitive environment variables are cleared from `process.env` after being read.
+
+## Per-session tokens (read tier)
+
+Session mode removes the long-lived admin credential. The server logs in as a
+dedicated low-privilege user when it starts, uses that session's own token for
+every call, and logs out when it stops (SIGINT, SIGTERM or stdin closing).
+Each server process gets a fresh token. Nothing is reused across sessions.
+
+Set both `TECHNITIUM_SESSION_USER` and `TECHNITIUM_SESSION_PASS`. Rules:
+
+- If only one is set or either is empty, startup fails with an error.
+- It cannot be combined with `TECHNITIUM_TOKEN`, `TECHNITIUM_TOKEN_FILE` or
+  `TECHNITIUM_PASSWORD`. Startup fails if both are present.
+- A rejected login at startup stops the server. Nothing runs without a session.
+- After logout the client cannot log in again.
+- `TECHNITIUM_READONLY` works as before. Session mode does not hide tools; the
+  user's Technitium permissions are what limit it.
+
+### Create the read-only Technitium user
+
+1. In the web admin, open **Administration** > **Groups** and add a group, for example `mcp-read`.
+2. Open **Administration** > **Permissions**. For each section the tools need, give `mcp-read` **View** only: Dashboard, Zones, Cache, Allowed, Blocked, DnsClient, Logs.
+3. Leave **Settings** and **Apps** without View unless you need `dns_get_settings`, `dns_get_app_config` or the app tools. Those responses can hold secrets.
+4. Open **Administration** > **Users** and add a user, for example `mcp-session`, with a long random password. Make `mcp-read` its only group.
+5. Log in as that user once and confirm every write action is refused.
+
+Technitium group and permission defaults differ between versions, so check the
+user's effective permissions in the web admin.
+
+The server calls `/api/user/login` and `/api/user/logout`. These two calls were
+written from the Technitium API docs and are covered only by mocked tests here.
+Test them once against your own server.
+
+### Admin tier is out of scope
+
+Session mode is for the read tier. The write and admin tools (zones, settings,
+apps, flush) need a separate decision on how an admin session is granted,
+approved and expired. Until that is decided, do not give the session user admin
+rights.
 
 ## Tools
 
