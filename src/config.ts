@@ -7,6 +7,24 @@ export interface Config {
   password?: string;
   readonly: boolean;
   allowHttp: boolean;
+  /**
+   * Per-session mode: log in as a dedicated low-privilege user at startup and
+   * log out at shutdown. Never holds a static token.
+   */
+  sessionMode?: boolean;
+}
+
+/**
+ * Read a boolean env flag. true/1 on, false/0/empty/unset off, case-insensitive.
+ * Any other value throws: a typo must not silently turn a safety flag off.
+ */
+function envFlag(name: string): boolean {
+  const raw = process.env[name];
+  if (raw === undefined) return false;
+  const v = raw.trim().toLowerCase();
+  if (v === "" || v === "false" || v === "0") return false;
+  if (v === "true" || v === "1") return true;
+  throw new Error(`${name} must be one of: true, 1, false, 0`);
 }
 
 export function loadConfig(): Config {
@@ -18,7 +36,7 @@ export function loadConfig(): Config {
   }
 
   const cleanUrl = url.replace(/\/$/, "");
-  const allowHttp = process.env.TECHNITIUM_ALLOW_HTTP === "true";
+  const allowHttp = envFlag("TECHNITIUM_ALLOW_HTTP");
 
   // Scheme check is case-insensitive (so HTTP:// can't slip past the guard) and
   // rejects anything that isn't http/https (e.g. file://, ftp://).
@@ -40,6 +58,43 @@ export function loadConfig(): Config {
     );
   }
 
+  // Per-session mode (TECHNITIUM_SESSION_USER + TECHNITIUM_SESSION_PASS).
+  // Exclusive with the static credentials, so an admin token or password can
+  // never be present alongside it. Fails closed on any partial configuration.
+  const sessionUser = process.env.TECHNITIUM_SESSION_USER;
+  const sessionPass = process.env.TECHNITIUM_SESSION_PASS;
+  if (sessionUser !== undefined || sessionPass !== undefined) {
+    if (!sessionUser || !sessionPass) {
+      throw new Error(
+        "Session mode needs both TECHNITIUM_SESSION_USER and TECHNITIUM_SESSION_PASS"
+      );
+    }
+    if (
+      process.env.TECHNITIUM_TOKEN ||
+      process.env.TECHNITIUM_TOKEN_FILE ||
+      process.env.TECHNITIUM_PASSWORD
+    ) {
+      throw new Error(
+        "Session mode (TECHNITIUM_SESSION_USER/PASS) cannot be combined with " +
+          "TECHNITIUM_TOKEN, TECHNITIUM_TOKEN_FILE or TECHNITIUM_PASSWORD"
+      );
+    }
+    // Session mode is the read tier: write tools are always hidden, and
+    // TECHNITIUM_READONLY cannot turn that off. Still parsed, so a typo fails.
+    envFlag("TECHNITIUM_READONLY");
+    delete process.env.TECHNITIUM_SESSION_USER;
+    delete process.env.TECHNITIUM_SESSION_PASS;
+    return {
+      url: cleanUrl,
+      user: sessionUser,
+      token: undefined,
+      password: sessionPass,
+      readonly: true,
+      allowHttp,
+      sessionMode: true,
+    };
+  }
+
   // Token priority: env token > token file > password
   let token = process.env.TECHNITIUM_TOKEN;
 
@@ -52,7 +107,7 @@ export function loadConfig(): Config {
       // readable/writable beyond its owner, which is too loose for a secret.
       if (mode & 0o077) {
         const detail = `Token file ${tokenFile} has loose permissions (${mode.toString(8)}). Should be 0600.`;
-        if (process.env.TECHNITIUM_STRICT_TOKEN_PERMS === "true") {
+        if (envFlag("TECHNITIUM_STRICT_TOKEN_PERMS")) {
           throw new Error(`${detail} (TECHNITIUM_STRICT_TOKEN_PERMS is enabled)`);
         }
         console.error(`[technitium-mcp] WARNING: ${detail}`);
@@ -65,7 +120,7 @@ export function loadConfig(): Config {
 
   const password = process.env.TECHNITIUM_PASSWORD;
   const user = process.env.TECHNITIUM_USER || "admin";
-  const readonly = process.env.TECHNITIUM_READONLY === "true";
+  const readonly = envFlag("TECHNITIUM_READONLY");
 
   if (!token && !password) {
     throw new Error(

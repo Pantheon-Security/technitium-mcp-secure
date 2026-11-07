@@ -21,7 +21,7 @@
     "postbuild": "node -e \"require('fs').chmodSync('dist/index.js', 0o755)\"",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
-    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/",
+    "test": "tsc -p tsconfig.test.json && node --test .test-build/tests/*.test.js",
     "lint": "biome lint src tests",
     "audit": "npm audit",
     "prepublishOnly": "rm -rf dist && npm run build && npm test"
@@ -30,7 +30,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.26.0"
+    "@modelcontextprotocol/sdk": "1.32.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
@@ -47,10 +47,12 @@
   "homepage": "https://github.com/Pantheon-Security/technitium-mcp-secure#readme",
   "author": "Ross Churchill",
   "overrides": {
-    "hono": "4.12.23",
+    "@hono/node-server": "2.1.3",
+    "hono": "4.13.11",
     "express-rate-limit": "8.5.2",
     "ip-address": "10.2.0",
-    "qs": "6.15.2"
+    "qs": "6.15.2",
+    "proxy-addr": "2.0.8"
   },
   "mcpName": "io.github.Pantheon-Security/technitium-mcp-secure"
 }

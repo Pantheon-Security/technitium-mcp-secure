@@ -8,6 +8,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync } from "node:fs";
 import { loadConfig } from "./config.js";
+import type { Config } from "./config.js";
+import { Lifecycle, installProcessHandlers, runGuarded } from "./lifecycle.js";
 import { TechnitiumClient } from "./client.js";
 import { getAllTools } from "./tools/index.js";
 import { audit } from "./audit.js";
@@ -32,6 +34,21 @@ const VERSION = readVersion();
 async function main(): Promise<void> {
   const config = loadConfig();
   const client = new TechnitiumClient(config);
+  const lifecycle = new Lifecycle(client);
+  // Exit handlers go in BEFORE login, so no path can end the process while a
+  // session token exists and has not been revoked.
+  installProcessHandlers(lifecycle);
+  await runGuarded(lifecycle, () => serve(config, client, lifecycle));
+}
+
+async function serve(
+  config: Config,
+  client: TechnitiumClient,
+  lifecycle: Lifecycle
+): Promise<void> {
+  // Per-session mode: get this session's own token now (fails closed on a bad
+  // credential). Plain static-credential mode is unchanged.
+  await client.startSession();
   const allTools = getAllTools(client);
 
   // Filter out write tools in readonly mode
@@ -158,32 +175,7 @@ async function main(): Promise<void> {
     }
   });
 
-  let shuttingDown = false;
-  const shutdown = async (signal: string) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    audit.logShutdown(signal);
-    // Force-exit if a graceful close hangs, so we never wedge on shutdown.
-    setTimeout(() => process.exit(1), 5000).unref();
-    client.clearToken();
-    await server.close();
-    process.exit(0);
-  };
-
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-
-  // Log crashes through the audit channel rather than dropping the transport
-  // silently; sanitize first so a stack/path never reaches stderr in the clear.
-  process.on("uncaughtException", (err) => {
-    audit.logSecurity("uncaught_exception", sanitizeError(err.message));
-    process.exit(1);
-  });
-  process.on("unhandledRejection", (reason) => {
-    const msg = reason instanceof Error ? reason.message : String(reason);
-    audit.logSecurity("unhandled_rejection", sanitizeError(msg));
-    process.exit(1);
-  });
+  lifecycle.setCloseServer(() => server.close());
 
   const transport = new StdioServerTransport();
   audit.logStartup(VERSION, maskUrl(config.url));
